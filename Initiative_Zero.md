@@ -2,33 +2,38 @@
 
 ## What the Human Can Now Do
 
-A single engineering team can safely modernize a mission-critical legacy application — COBOL, Java/SQLJ, or .NET processing billions in daily transactions — in weeks instead of years, without risking production stability.
+A single engineering team can safely modernize a legacy application processing billions in daily transactions, in weeks instead of years, without risking the live system.
 
-Previously, this required armies of specialists, multi-year timelines, and big-bang cutovers. Business rules were trapped in code nobody understood. The people who wrote it had retired. Documentation had rotted. Teams were paralyzed because the risk of touching a working system outweighed the cost of keeping it alive.
+Previously, this required large specialist teams, multi-year timelines, and risky cutovers. Business logic was buried in code nobody understood. Traditional approaches failed: lift-and-shift relocates problems to newer infrastructure, and like-for-like translation carries forward technical debt while staying coupled to the original structure.
 
-Now, one team augmented by AI agents can comprehend a legacy codebase, extract its business logic as technology-agnostic requirements, generate a clean modern application, and deploy incrementally — with the legacy system running safely alongside it the entire time.
+Initiative Zero takes a different path. AI agents extract business logic and produce a clean specification of what the system does. A new application is generated from scratch. Technical debt is left behind, and the old system runs safely alongside the new one the entire time.
 
 ## What AI Is Responsible For
 
-AI handles the cognitive work that previously required scarce, expensive specialists and months of manual effort:
+AI handles work that previously required scarce specialists, producing reusable artifacts at each stage:
 
-**Comprehension** — AI agents analyze legacy code across languages (COBOL, Java, C#) and produce standardized assessments: purpose, dependencies, technical debt, coverage gaps, and migration economics.
+**Comprehension.** AI analyzes legacy code (COBOL, Java, C#) and produces a standardized **Analysis Report**: dependencies, technical debt, coverage gaps, and migration economics.
 
-**Business Rule Extraction** — The core innovation. AI distills pure business logic from implementation details, producing a plain-text specification of *what the system does* completely decoupled from *how it was built*.
+**Business Rule Extraction.** AI distills business logic from implementation details, validated against production behavior. The output is a **technology-agnostic requirements document** describing what the system does, not how it was built.
 
-**Code Generation** — From that specification, AI generates an entirely new application in any target language. Not line-by-line translation — greenfield development from validated requirements. Technical debt is left behind, not carried forward.
+**Code Generation.** From that document, AI generates a new application in any target language. Greenfield development, not translation.
 
-**Testing & Drift Classification** — AI generates test suites from the same requirements, then classifies every difference between legacy and modern output on a four-tier scale, so humans adjudicate only what requires judgment.
+**Testing and Drift Classification.** AI generates test suites from the same requirements, runs both systems against identical inputs, and classifies every difference on a four-tier scale. The output is a **drift report with adjudication queue**.
 
 ## Where AI Must Stop
 
-**The decision to route live customer transactions through AI-generated code must remain human.** A migrated financial system handling real money and real regulatory obligations cannot go live on AI confidence alone. A business analyst and technical lead must review drift adjudications, sign off on slice promotions, and authorize production cutover. AI can tell you the system *appears* correct. Only a human can accept the residual risk of serving it to customers. This boundary exists because the consequences of being wrong are regulatory action and customer harm, not just bug reports.
+Three points in the pipeline require human judgment:
+
+**1. Validating the product specification before it crosses the security firewall.** Domain experts must confirm extracted requirements are correct and complete. This is the only artifact that reaches external AI for code generation; errors here propagate downstream.
+
+**2. Adjudicating semantic drift.** When output differences are not cosmetic but not clearly wrong, a BA, tech lead, or compliance specialist must decide: is the modern behavior acceptable, a legacy bug to preserve, or a defect to fix?
+
+**3. Authorizing production deployment.** The quality gate requires 90%+ coverage, all tests passing, all drift adjudicated, and a clean security scan. AI surfaces evidence; only a human can accept the risk of serving the system to customers.
+
+## How It Deploys Safely: The Coexistence Model
+
+The new application starts in read-only mode alongside legacy, pointing at the same database. Legacy handles all writes. Monitoring compares outputs transaction by transaction. Each slice progresses through staged gates: isolation, read-only, shadow, canary, then full production. Legacy remains live at every stage and rollback is instant. After migration, AI tooling is decommissioned. What remains is standard code any engineer can maintain.
 
 ## What Would Break First at Scale
 
-The SME validation bottleneck. AI can extract business rules from dozens of legacy systems simultaneously — but human domain experts who understand what those rules *mean* in the real world can only validate so many at a time. At scale, the pipeline's throughput is gated by the scarcest resource: people who know why a 30-year-old exception handler exists and whether it still matters. The mitigation is progressive — each validated system teaches the AI patterns that reduce the validation burden on the next — but the human bottleneck is real and must be planned for.
-
----
-
-**Salary expectation:** $160,000 CAD  
-**Hands-on AI experience:** 3 years — managing and building AI-driven systems, agent architectures, and modernization pipelines.
+The SME validation bottleneck. AI can extract business rules from dozens of systems at once, but domain experts can only validate so many at a time. Each validated system teaches the AI patterns that reduce the next system's burden, but this bottleneck must be planned for.
