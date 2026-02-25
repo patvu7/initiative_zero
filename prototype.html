@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Initiative Zero — AI-Native Code Modernization Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Jost:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#FFFCF7;--bg-warm:#FFF8EF;--bg-card:#FFF;--bg-code:#32302F;--bg-code-h:#3d3b3a;--bg-sub:#F5F0EA;--dune:#32302F;--tx:#32302F;--tx2:#6B6563;--tx3:#9B9492;--tx4:#C4BAB4;--bdr:#E8E0D8;--bdr-h:#D4C8BE;--yel:#F2C94C;--yeld:#E5A100;--red:#E8634A;--redd:#C94D38;--grn:#4CAF82;--grnd:#3A8F68;--blu:#5B8DEF;--fd:'Libre Caslon Display','Georgia',serif;--fs:'Libre Caslon Text','Georgia',serif;--fn:'Jost','Futura',sans-serif;--fm:'JetBrains Mono',monospace}
+html{scroll-behavior:smooth}
+body{font-family:var(--fn);background:var(--bg);color:var(--tx);line-height:1.65;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
+
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;position:relative;padding:2rem}
+.hero-ey{font-family:var(--fn);font-size:.8rem;font-weight:500;letter-spacing:.25em;text-transform:uppercase;color:var(--red);margin-bottom:2rem;opacity:0;animation:fu .8s ease forwards .2s}
+.hero-t{font-family:var(--fd);font-size:clamp(3.5rem,9vw,8rem);font-weight:400;line-height:1;letter-spacing:-.02em;color:var(--dune);opacity:0;animation:fu .8s ease forwards .4s}
+.hero-t em{font-family:var(--fs);font-style:italic;color:var(--red)}
+.hero-r{width:60px;height:3px;background:var(--yel);margin:2.5rem auto;opacity:0;animation:fu .8s ease forwards .5s}
+.hero-s{font-family:var(--fs);font-size:clamp(1rem,2vw,1.2rem);color:var(--tx2);max-width:540px;line-height:1.8;opacity:0;animation:fu .8s ease forwards .6s}
+.hero-cta{margin-top:3.5rem;opacity:0;animation:fu .8s ease forwards .8s}
+
+.btn-p{display:inline-flex;align-items:center;gap:.75rem;font-family:var(--fn);font-size:.9rem;font-weight:500;letter-spacing:.08em;padding:1.1rem 2.5rem;background:var(--dune);color:#fff;border:none;border-radius:100px;cursor:pointer;transition:all .35s ease;text-transform:uppercase}
+.btn-p:hover{background:var(--red);transform:translateY(-1px);box-shadow:0 8px 30px rgba(232,99,74,.2)}
+.btn-p .ar{transition:transform .3s ease}.btn-p:hover .ar{transform:translateX(4px)}
+
+.sh{position:absolute;bottom:2.5rem;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.5rem;opacity:0;animation:fu .8s ease forwards 1.2s}
+.sh span{font-family:var(--fn);font-size:.65rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--tx4)}
+.sm{width:18px;height:28px;border:1.5px solid var(--tx4);border-radius:10px;position:relative}
+.sm::after{content:'';position:absolute;top:6px;left:50%;transform:translateX(-50%);width:2px;height:6px;background:var(--tx4);border-radius:2px;animation:sd 1.5s ease-in-out infinite}
+
+.ps{padding:0 2rem 4rem;max-width:1200px;margin:0 auto;display:none}.ps.act{display:block}
+
+.zp{display:flex;align-items:center;gap:0;margin-bottom:3.5rem;padding:1.5rem 0;position:sticky;top:0;background:var(--bg);z-index:100;border-bottom:1px solid var(--bdr)}
+.zs{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;font-family:var(--fn);font-size:.65rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--tx4);cursor:pointer;transition:all .3s;white-space:nowrap}
+.zs .sn{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:1.5px solid var(--tx4);border-radius:50%;font-size:.6rem;font-weight:600;flex-shrink:0;transition:all .3s}
+.zs.act{color:var(--dune)}.zs.act .sn{border-color:var(--dune);background:var(--dune);color:#fff}
+.zs.cmp{color:var(--grn)}.zs.cmp .sn{border-color:var(--grn);color:var(--grn)}
+.zc{flex:1;height:1px;background:var(--bdr);min-width:8px}.zc.cmp{background:var(--grn)}
+.zc.fw{height:2px;background:repeating-linear-gradient(90deg,var(--red) 0px,var(--red) 5px,transparent 5px,transparent 10px)}
+
+.zcn{display:none;animation:fi .5s ease}.zcn.act{display:block}
+.zey{font-family:var(--fn);font-size:.7rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:.75rem}
+.zt{font-family:var(--fd);font-size:clamp(2.2rem,4vw,3.2rem);font-weight:400;color:var(--dune);margin-bottom:1rem}
+.zd{font-family:var(--fs);color:var(--tx2);font-size:1.05rem;max-width:620px;margin-bottom:3rem;line-height:1.8}
+
+.cp{background:var(--bg-code);border-radius:12px;overflow:hidden;margin-bottom:1.5rem;box-shadow:0 4px 20px rgba(50,48,47,.08)}
+.cph{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;background:var(--bg-code-h);font-family:var(--fm);font-size:.7rem;color:#9B9492}
+.lb{padding:.2rem .6rem;background:rgba(255,255,255,.08);border-radius:4px;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--yel)}
+.cpb{padding:1.5rem;font-family:var(--fm);font-size:.78rem;line-height:1.8;overflow-x:auto;max-height:500px;overflow-y:auto;color:#e0ddd8}
+.cpb pre{white-space:pre;tab-size:4}
+.kw{color:#E8634A}.fn{color:#5B8DEF}.str{color:#4CAF82}.cmt{color:#6B6563;font-style:italic}.num{color:#F2C94C}.type{color:#E5A100}.op{color:#5B8DEF}.dec{color:#E8634A}
+
+.ag{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem;margin-bottom:2.5rem}
+.ac{background:var(--bg-card);border:1px solid var(--bdr);border-radius:12px;padding:1.75rem;transition:border-color .3s,box-shadow .3s}
+.ac:hover{border-color:var(--bdr-h);box-shadow:0 4px 20px rgba(50,48,47,.06)}
+.ac h4{font-family:var(--fn);font-size:.65rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--tx3);margin-bottom:.75rem}
+.ac p{font-size:.9rem;color:var(--tx2);line-height:1.65}
+.mt{font-family:var(--fd);font-size:2.2rem;font-weight:400;color:var(--dune);display:block;margin-bottom:.25rem}
+.mta{color:var(--red)!important}
+
+.rl{display:flex;flex-direction:column;gap:.75rem;margin-bottom:2.5rem}
+.ri{display:flex;gap:1rem;padding:1.25rem 1.5rem;background:var(--bg-card);border:1px solid var(--bdr);border-radius:10px;align-items:flex-start;opacity:0;transform:translateY(12px);transition:all .4s}
+.ri.vis{opacity:1;transform:translateY(0)}
+.rid{font-family:var(--fm);font-size:.6rem;font-weight:600;letter-spacing:.08em;padding:.25rem .6rem;background:var(--bg-sub);color:var(--tx2);border-radius:4px;white-space:nowrap;flex-shrink:0}
+.rtx{font-size:.9rem;line-height:1.6;color:var(--tx)}
+
+.fv{margin:3rem 0;padding:3rem;background:var(--bg-warm);border-radius:16px}
+.ff{display:grid;grid-template-columns:1fr auto 1fr;gap:2rem;align-items:center;margin-top:2rem}
+.fsd{padding:1.5rem;border-radius:10px;background:var(--bg-card);border:1px solid var(--bdr)}
+.fsd h4{font-family:var(--fn);font-size:.65rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.75rem}
+.fsd.bl{border-color:rgba(232,99,74,.3)}.fsd.bl h4{color:var(--red)}
+.fsd.al{border-color:rgba(76,175,130,.3)}.fsd.al h4{color:var(--grn)}
+.far{display:flex;flex-direction:column;align-items:center;gap:.5rem;font-family:var(--fn);font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+.fdv{height:3px;background:repeating-linear-gradient(90deg,var(--red) 0px,var(--red) 16px,transparent 16px,transparent 24px);margin-top:2rem;border-radius:2px;position:relative}
+.fdl{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-family:var(--fn);font-size:.6rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--red);background:var(--bg-warm);padding:0 1rem;white-space:nowrap}
+
+.dt{width:100%;border-collapse:collapse;margin-bottom:2rem;font-size:.85rem}
+.dt th{font-family:var(--fn);font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--bdr);color:var(--tx3)}
+.dt td{padding:.85rem 1rem;border-bottom:1px solid var(--bdr);vertical-align:top;color:var(--tx2)}
+.db{font-family:var(--fn);font-size:.65rem;font-weight:600;padding:.25rem .65rem;border-radius:100px;white-space:nowrap}
+.db.t0{background:rgba(76,175,130,.1);color:var(--grnd)}.db.t1{background:rgba(91,141,239,.1);color:var(--blu)}
+.db.t2{background:rgba(229,161,0,.12);color:var(--yeld)}.db.t3{background:rgba(232,99,74,.1);color:var(--red)}
+
+.hg{background:var(--bg-card);border:2px solid var(--yel);border-radius:14px;padding:2rem;margin:2rem 0;position:relative}
+.hgl{position:absolute;top:-11px;left:1.5rem;font-family:var(--fn);font-size:.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--yeld);background:var(--bg);padding:0 .6rem}
+.hg p{color:var(--tx2);margin-bottom:1rem;line-height:1.7;font-size:.95rem}
+.ga{display:flex;gap:.75rem;flex-wrap:wrap}
+.bg{font-family:var(--fn);font-size:.78rem;font-weight:500;letter-spacing:.03em;padding:.7rem 1.4rem;border:1.5px solid;background:transparent;cursor:pointer;transition:all .3s;border-radius:8px}
+.bg.ap{border-color:var(--grn);color:var(--grnd)}.bg.ap:hover{background:var(--grn);color:#fff}
+.bg.rj{border-color:var(--red);color:var(--red)}.bg.rj:hover{background:var(--red);color:#fff}
+.bg.fl{border-color:var(--yeld);color:var(--yeld)}.bg.fl:hover{background:var(--yeld);color:#fff}
+
+.qg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:2rem 0}
+.gc{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:var(--bg-card);border:1px solid var(--bdr);border-radius:10px}
+.gi{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:.75rem;flex-shrink:0}
+.gi.p{background:rgba(76,175,130,.12);color:var(--grn)}.gi.w{background:rgba(229,161,0,.12);color:var(--yeld)}
+.gl{font-family:var(--fn);font-size:.8rem;font-weight:500;color:var(--tx2)}
+
+.tp{display:flex;gap:0;margin:2rem 0;overflow-x:auto}
+.ts{flex:1;min-width:130px;padding:1.25rem 1rem;border:1px solid var(--bdr);border-right:none;text-align:center;transition:all .3s;cursor:pointer;background:var(--bg-card);position:relative}
+.ts:first-child{border-radius:10px 0 0 10px}.ts:last-child{border-right:1px solid var(--bdr);border-radius:0 10px 10px 0}
+.ts::after{content:'→';position:absolute;right:-7px;top:50%;transform:translateY(-50%);color:var(--tx4);z-index:1;font-size:.75rem}.ts:last-child::after{display:none}
+.ts .tsn{font-family:var(--fn);font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;color:var(--tx3)}
+.ts .tss{font-size:.72rem;color:var(--tx4)}
+.ts.act{background:rgba(229,161,0,.06);border-color:var(--yeld)}.ts.act .tsn{color:var(--yeld)}
+.ts.cmp{background:rgba(76,175,130,.04)}.ts.cmp .tsn{color:var(--grn)}
+
+.pi{display:flex;align-items:center;gap:.75rem;padding:1.25rem 1.5rem;background:var(--bg-sub);border-radius:10px;margin-bottom:2rem;font-family:var(--fn);font-size:.85rem;color:var(--tx2)}
+.pd{display:flex;gap:5px}.pd span{width:7px;height:7px;border-radius:50%;background:var(--red);animation:dp 1.4s ease-in-out infinite}
+.pd span:nth-child(2){animation-delay:.2s}.pd span:nth-child(3){animation-delay:.4s}
+
+.zn{display:flex;justify-content:space-between;margin-top:3.5rem;padding-top:2rem;border-top:1px solid var(--bdr)}
+.bn{font-family:var(--fn);font-size:.8rem;font-weight:500;letter-spacing:.03em;padding:.75rem 1.5rem;background:transparent;border:1.5px solid var(--bdr);color:var(--tx2);cursor:pointer;transition:all .3s;border-radius:8px;display:flex;align-items:center;gap:.5rem}
+.bn:hover{border-color:var(--dune);color:var(--dune)}
+.bn.pr{background:var(--dune);border-color:var(--dune);color:#fff}.bn.pr:hover{background:var(--red);border-color:var(--red)}
+
+.tc{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem}
+@media(max-width:768px){.tc{grid-template-columns:1fr}.ff{grid-template-columns:1fr}.zp{overflow-x:auto}}
+
+.cr{width:130px;height:130px;position:relative;margin:0 auto 1rem}.cr svg{width:100%;height:100%;transform:rotate(-90deg)}
+.cr .cbg{fill:none;stroke:var(--bdr);stroke-width:5}.cr .cfl{fill:none;stroke:var(--grn);stroke-width:5;stroke-linecap:round;stroke-dasharray:314;stroke-dashoffset:314;transition:stroke-dashoffset 1.5s ease}
+.cv{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--fd);font-size:1.8rem;color:var(--dune)}
+
+.sb{display:inline-flex;align-items:center;gap:.3rem;font-family:var(--fn);font-size:.65rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:.25rem .65rem;border-radius:100px}
+.sb.su{color:var(--grnd);background:rgba(76,175,130,.1)}.sb.wa{color:var(--yeld);background:rgba(229,161,0,.1)}.sb.da{color:var(--red);background:rgba(232,99,74,.1)}
+
+.sh2{font-family:var(--fd);font-size:1.6rem;color:var(--dune);margin:2.5rem 0 1rem}
+
+.ss{display:none;padding:6rem 2rem;max-width:900px;margin:0 auto;text-align:center}.ss.act{display:block}
+.sst{font-family:var(--fd);font-size:clamp(2.5rem,5vw,4rem);color:var(--dune);margin-bottom:1rem}
+.sst em{font-family:var(--fs);font-style:italic;color:var(--red)}
+.ssg{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin:3rem 0}
+.si{padding:2rem;border:1px solid var(--bdr);border-radius:14px;background:var(--bg-card)}
+.sv{font-family:var(--fd);font-size:3rem;color:var(--red)}
+.sl{font-family:var(--fs);font-size:.85rem;color:var(--tx2);margin-top:.5rem}
+
+.to{position:fixed;bottom:2rem;right:2rem;padding:1rem 1.75rem;background:var(--dune);color:#fff;font-family:var(--fn);font-size:.82rem;font-weight:500;border-radius:10px;z-index:1000;transform:translateY(100px);opacity:0;transition:all .4s;box-shadow:0 8px 30px rgba(50,48,47,.15)}
+.to.sh{transform:translateY(0);opacity:1}
+
+@keyframes fu{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes dp{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}
+@keyframes sd{0%{opacity:0;transform:translate(-50%,0)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,8px)}}
+</style>
+</head>
+<body>
+
+<section class="hero" id="hero">
+  <div class="hero-ey">AI-Native Code Modernization</div>
+  <h1 class="hero-t">Initiative <em>Zero</em></h1>
+  <div class="hero-r"></div>
+  <p class="hero-s">Extract business rules from legacy systems. Generate modern applications from those rules. Deploy without risk. A clean break from technical debt.</p>
+  <div class="hero-cta"><button class="btn-p" onclick="start()">Begin Pipeline Demo <span class="ar">→</span></button></div>
+  <div class="sh"><div class="sm"></div><span>Explore the pipeline</span></div>
+</section>
+
+<section class="ps" id="pipeline">
+  <nav class="zp" id="zoneProgress">
+    <div class="zs act" data-zone="1" onclick="go(1)"><span class="sn">1</span>Legacy</div><div class="zc"></div>
+    <div class="zs" data-zone="2" onclick="go(2)"><span class="sn">2</span>Analysis</div><div class="zc"></div>
+    <div class="zs" data-zone="3" onclick="go(3)"><span class="sn">3</span>Strainer</div><div class="zc fw"></div>
+    <div class="zs" data-zone="4" onclick="go(4)"><span class="sn">4</span>Generation</div><div class="zc"></div>
+    <div class="zs" data-zone="5" onclick="go(5)"><span class="sn">5</span>Testing</div><div class="zc"></div>
+    <div class="zs" data-zone="6" onclick="go(6)"><span class="sn">6</span>Production</div>
+  </nav>
+
+  <!-- ZONE 1 -->
+  <div class="zcn act" id="zone-1">
+    <div class="zey">Zone 01</div>
+    <h2 class="zt">Legacy Environment</h2>
+    <p class="zd">The existing system runs undisturbed. We extract source code and metadata as inputs — nothing is modified. The legacy application continues serving production traffic throughout the entire migration.</p>
+    <div class="cp"><div class="cph"><span>claims_processing.cbl</span><span class="lb">COBOL</span></div>
+    <div class="cpb"><pre><span class="cmt">      * ══════════════════════════════════════════════</span>
+<span class="cmt">      * CLAIMS PROCESSING — CROWN JEWEL SYSTEM</span>
+<span class="cmt">      * Last modified: 1997-03-14 by J. Morrison</span>
+<span class="cmt">      * WARNING: Do not modify CALC-PAYOUT section</span>
+<span class="cmt">      * ══════════════════════════════════════════════</span>
+       <span class="kw">IDENTIFICATION DIVISION</span>.
+       <span class="kw">PROGRAM-ID</span>. PROCESS-CLAIM.
+
+       <span class="kw">DATA DIVISION</span>.
+       <span class="kw">WORKING-STORAGE SECTION</span>.
+       <span class="num">01</span> WS-CLAIM-RECORD.
+          <span class="num">05</span> WS-CLAIM-ID          <span class="type">PIC 9(8)</span>.
+          <span class="num">05</span> WS-POLICY-NUMBER     <span class="type">PIC X(10)</span>.
+          <span class="num">05</span> WS-CLAIM-AMOUNT      <span class="type">PIC 9(7)V99</span>.
+          <span class="num">05</span> WS-DEDUCTIBLE        <span class="type">PIC 9(5)V99</span>.
+          <span class="num">05</span> WS-COVERAGE-LIMIT    <span class="type">PIC 9(7)V99</span>.
+          <span class="num">05</span> WS-APPROVAL-STATUS   <span class="type">PIC X(1)</span>.
+             <span class="num">88</span> APPROVED             <span class="kw">VALUE</span> <span class="str">'A'</span>.
+             <span class="num">88</span> DENIED               <span class="kw">VALUE</span> <span class="str">'D'</span>.
+             <span class="num">88</span> PENDING              <span class="kw">VALUE</span> <span class="str">'P'</span>.
+       <span class="num">01</span> WS-PAYOUT-AMOUNT       <span class="type">PIC 9(7)V99</span>.
+       <span class="num">01</span> WS-NET-CLAIM           <span class="type">PIC 9(7)V99</span>.
+
+       <span class="kw">PROCEDURE DIVISION</span>.
+       MAIN-PROCESS.
+           <span class="kw">PERFORM</span> VALIDATE-CLAIM
+           <span class="kw">IF</span> WS-ERROR-CODE <span class="op">=</span> <span class="num">0</span>
+              <span class="kw">PERFORM</span> CALC-PAYOUT
+              <span class="kw">PERFORM</span> UPDATE-STATUS
+              <span class="kw">PERFORM</span> WRITE-AUDIT-LOG
+           <span class="kw">END-IF</span>
+           <span class="kw">STOP RUN</span>.
+
+       VALIDATE-CLAIM.
+           <span class="kw">IF</span> WS-CLAIM-AMOUNT <span class="op">&gt;</span> WS-COVERAGE-LIMIT
+              <span class="kw">MOVE</span> <span class="num">1001</span> <span class="kw">TO</span> WS-ERROR-CODE
+              <span class="kw">SET</span> DENIED <span class="kw">TO TRUE</span>
+           <span class="kw">ELSE IF</span> WS-POLICY-NUMBER <span class="op">=</span> <span class="str">SPACES</span>
+              <span class="kw">MOVE</span> <span class="num">1002</span> <span class="kw">TO</span> WS-ERROR-CODE
+              <span class="kw">SET</span> DENIED <span class="kw">TO TRUE</span>
+           <span class="kw">ELSE</span>
+              <span class="kw">MOVE</span> <span class="num">0</span> <span class="kw">TO</span> WS-ERROR-CODE
+           <span class="kw">END-IF</span>.
+
+       CALC-PAYOUT.
+<span class="cmt">      * CRITICAL: Deductible logic — regulatory</span>
+           <span class="kw">SUBTRACT</span> WS-DEDUCTIBLE <span class="kw">FROM</span> WS-CLAIM-AMOUNT
+              <span class="kw">GIVING</span> WS-NET-CLAIM
+           <span class="kw">IF</span> WS-NET-CLAIM <span class="op">&gt;</span> WS-COVERAGE-LIMIT
+              <span class="kw">MOVE</span> WS-COVERAGE-LIMIT <span class="kw">TO</span> WS-PAYOUT-AMOUNT
+           <span class="kw">ELSE</span>
+              <span class="kw">MOVE</span> WS-NET-CLAIM <span class="kw">TO</span> WS-PAYOUT-AMOUNT
+           <span class="kw">END-IF</span>
+           <span class="kw">SET</span> APPROVED <span class="kw">TO TRUE</span>.</pre></div></div>
+    <div class="ag">
+      <div class="ac"><h4>System</h4><span class="mt">COBOL</span><p>Claims Processing — Mainframe DB2 batch</p></div>
+      <div class="ac"><h4>Age</h4><span class="mt mta">28 yrs</span><p>Last meaningful refactor: 2003</p></div>
+      <div class="ac"><h4>Daily Transactions</h4><span class="mt">2.4M</span><p>Critical path for customer payouts</p></div>
+      <div class="ac"><h4>SMEs Remaining</h4><span class="mt mta">2</span><p>Both within 3 years of retirement</p></div>
+    </div>
+    <div class="zn"><div></div><button class="bn pr" onclick="adv(2)">Begin Analysis <span>→</span></button></div>
+  </div>
+
+  <!-- ZONE 2 -->
+  <div class="zcn" id="zone-2">
+    <div class="zey">Zone 02</div>
+    <h2 class="zt">Analysis Engine</h2>
+    <p class="zd">The Explainer Agent comprehends the legacy code within the internal network. Four parallel analyses produce a standardized assessment — independently valuable even if migration never proceeds.</p>
+    <div class="pi" id="aP"><div class="pd"><span></span><span></span><span></span></div><span>Explainer Agent analyzing legacy codebase...</span></div>
+    <div id="aR" style="display:none">
+      <div class="ag">
+        <div class="ac"><h4>App Analysis</h4><p><strong>Purpose:</strong> Claims adjudication & payout<br><strong>Stack:</strong> COBOL → DB2 → JCL<br><strong>Dependencies:</strong> 4 up, 7 down<br><strong>Criticality:</strong> Tier 1</p></div>
+        <div class="ac"><h4>Code Analysis</h4><p><strong>Complexity:</strong> 34 (high)<br><strong>Dead code:</strong> ~18%<br><strong>Security:</strong> 2 unpatched patterns<br><strong>Tech debt:</strong> 6 workarounds</p></div>
+        <div class="ac"><h4>Test Analysis</h4><p><strong>Coverage:</strong> 23% (unit only)<br><strong>Missing:</strong> Integration, negative<br><strong>Gap:</strong> No edge case tests<br><strong>Risk:</strong> Month-end untested</p></div>
+        <div class="ac"><h4>Cost Analysis</h4><p><strong>Maintenance:</strong> $1.2M/yr<br><strong>AI migration:</strong> $340K<br><strong>Manual:</strong> $2.8M / 18mo<br><strong>ROI breakeven:</strong> 4 months</p></div>
+      </div>
+      <div style="text-align:center;margin:2.5rem 0">
+        <div class="cr" id="cR"><svg viewBox="0 0 120 120"><circle class="cbg" cx="60" cy="60" r="50"/><circle class="cfl" id="cF" cx="60" cy="60" r="50"/></svg><div class="cv" id="cV">0%</div></div>
+        <div style="font-family:var(--fn);font-size:.7rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--tx3)">Migration Confidence Score</div>
+        <div style="font-family:var(--fs);font-size:.95rem;color:var(--grnd);margin-top:.5rem">Recommendation: Proceed — COBOL → Python</div>
+      </div>
+    </div>
+    <div class="zn"><button class="bn" onclick="adv(1)"><span>←</span> Legacy</button><button class="bn pr" onclick="adv(3)">Extract Rules <span>→</span></button></div>
+  </div>
+
+  <!-- ZONE 3 -->
+  <div class="zcn" id="zone-3">
+    <div class="zey">Zone 03</div>
+    <h2 class="zt">Business Rule Strainer</h2>
+    <p class="zd">AI reads the legacy code and distills pure business rules — stripping away infrastructure concerns. The output describes <em>what the system does</em>, not how it was built.</p>
+    <div class="pi" id="sP"><div class="pd"><span></span><span></span><span></span></div><span>Rule Extractor Agent distilling business logic...</span></div>
+    <div id="sR" style="display:none">
+      <div class="rl" id="rL">
+        <div class="ri"><span class="rid">BR-001</span><span class="rtx"><strong>Claim Validation:</strong> Deny if claim amount exceeds coverage limit. Error: 1001.</span></div>
+        <div class="ri"><span class="rid">BR-002</span><span class="rtx"><strong>Policy Validation:</strong> Deny if no policy number. Error: 1002.</span></div>
+        <div class="ri"><span class="rid">BR-003</span><span class="rtx"><strong>Net Claim:</strong> net_claim = claim_amount − deductible.</span></div>
+        <div class="ri"><span class="rid">BR-004</span><span class="rtx"><strong>Payout Cap:</strong> payout = min(net_claim, coverage_limit).</span></div>
+        <div class="ri"><span class="rid">BR-005</span><span class="rtx"><strong>Approval:</strong> Mark approved after successful calculation.</span></div>
+        <div class="ri"><span class="rid">BR-006</span><span class="rtx"><strong>Audit Trail:</strong> Immutable log per decision with timestamp.</span></div>
+        <div class="ri"><span class="rid">OBS-01</span><span class="rtx"><strong>Behavioral Observation:</strong> DB2 logs reveal month-end batch recalculation not in source code — likely JCL-triggered. <span class="sb wa">⚠ Requires SME validation</span></span></div>
+      </div>
+      <div class="fv">
+        <h3 class="sh2" style="margin-top:0">Security Firewall</h3>
+        <p style="color:var(--tx2);max-width:560px;font-family:var(--fs);line-height:1.7">Only plain-text requirements cross this boundary. No source code, no schemas, no internal artifacts ever leave the network.</p>
+        <div class="ff">
+          <div class="fsd bl"><h4>🚫 Blocked</h4><p style="font-family:var(--fm);font-size:.78rem;color:var(--red);line-height:1.9">✗ COBOL source<br>✗ DB2 schemas<br>✗ JCL definitions<br>✗ Internal APIs<br>✗ SQLJ artifacts</p></div>
+          <div class="far"><span style="color:var(--red)">blocked</span>🔥<span style="color:var(--grn)">allowed</span></div>
+          <div class="fsd al"><h4>✓ Passes Through</h4><p style="font-family:var(--fm);font-size:.78rem;color:var(--grnd);line-height:1.9">✓ BR-001 – BR-006<br>✓ OBS-01 note<br>✓ Plain-text reqs<br>✓ Tech-agnostic spec<br>✓ No impl details</p></div>
+        </div>
+        <div class="fdv"><span class="fdl">🔥 Security Boundary — Code Never Leaves</span></div>
+      </div>
+    </div>
+    <div class="zn"><button class="bn" onclick="adv(2)"><span>←</span> Analysis</button><button class="bn pr" onclick="adv(4)">Generate Code <span>→</span></button></div>
+  </div>
+
+  <!-- ZONE 4 -->
+  <div class="zcn" id="zone-4">
+    <div class="zey">Zone 04</div>
+    <h2 class="zt">Generation Engine</h2>
+    <p class="zd">External AI receives <em>only</em> the requirements and generates a new application from scratch. Greenfield development — not translation.</p>
+    <div class="pi" id="gP"><div class="pd"><span></span><span></span><span></span></div><span>Code Generator building from requirements...</span></div>
+    <div id="gR" style="display:none">
+      <div class="tc">
+        <div><div class="cp"><div class="cph"><span>requirements.txt</span><span class="lb" style="color:#e0ddd8">Text</span></div><div class="cpb" style="font-size:.74rem"><pre><span class="cmt"># Claims — Business Requirements</span>
+<span class="cmt"># Initiative Zero Strainer</span>
+
+<span class="str">BR-001</span>: Deny if amount > limit (1001)
+<span class="str">BR-002</span>: Deny if no policy (1002)
+<span class="str">BR-003</span>: net = claim - deductible
+<span class="str">BR-004</span>: payout = min(net, limit)
+<span class="str">BR-005</span>: Mark approved
+<span class="str">BR-006</span>: Immutable audit log
+
+<span class="cmt"># CAD, 2 decimal, non-negative</span></pre></div></div></div>
+        <div><div class="cp"><div class="cph"><span>claim_service.py</span><span class="lb">Python</span></div><div class="cpb" style="font-size:.74rem"><pre><span class="kw">from</span> decimal <span class="kw">import</span> Decimal, ROUND_HALF_UP
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+<span class="kw">from</span> enum <span class="kw">import</span> Enum
+
+<span class="kw">class</span> <span class="type">ClaimStatus</span>(Enum):
+    APPROVED = <span class="str">"A"</span>
+    DENIED   = <span class="str">"D"</span>
+    PENDING  = <span class="str">"P"</span>
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="type">ClaimRecord</span>:
+    claim_id: <span class="type">str</span>
+    policy_number: <span class="type">str</span>
+    claim_amount: <span class="type">Decimal</span>
+    deductible: <span class="type">Decimal</span>
+    coverage_limit: <span class="type">Decimal</span>
+    status: <span class="type">ClaimStatus</span> = ClaimStatus.PENDING
+    payout: <span class="type">Decimal</span> = Decimal(<span class="str">"0"</span>)
+
+<span class="kw">class</span> <span class="type">ClaimProcessor</span>:
+    <span class="kw">def</span> <span class="fn">process</span>(self, c):
+        err = self.<span class="fn">_validate</span>(c)
+        <span class="kw">if</span> err:
+            c.status = ClaimStatus.DENIED
+            <span class="kw">return</span> c
+        <span class="cmt"># BR-003</span>
+        net = (c.claim_amount - c.deductible
+              ).quantize(Decimal(<span class="str">"0.01"</span>),
+                         rounding=ROUND_HALF_UP)
+        <span class="cmt"># BR-004</span>
+        c.payout = <span class="fn">min</span>(net, c.coverage_limit)
+        <span class="cmt"># BR-005</span>
+        c.status = ClaimStatus.APPROVED
+        <span class="kw">return</span> c
+
+    <span class="kw">def</span> <span class="fn">_validate</span>(self, c):
+        <span class="kw">if</span> c.claim_amount > c.coverage_limit:
+            <span class="kw">return</span> <span class="num">1001</span>  <span class="cmt"># BR-001</span>
+        <span class="kw">if not</span> c.policy_number.strip():
+            <span class="kw">return</span> <span class="num">1002</span>  <span class="cmt"># BR-002</span>
+        <span class="kw">return</span> <span class="kw">None</span></pre></div></div></div>
+      </div>
+      <div class="ag" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+        <div class="ac"><h4>Architecture</h4><p>Clean domain separation</p></div>
+        <div class="ac"><h4>Dependencies</h4><p>Python stdlib only</p></div>
+        <div class="ac"><h4>Traceability</h4><p>Each method → BR-###</p></div>
+        <div class="ac"><h4>Debt Carried</h4><p style="color:var(--grnd);font-weight:600">Zero.</p></div>
+      </div>
+    </div>
+    <div class="zn"><button class="bn" onclick="adv(3)"><span>←</span> Strainer</button><button class="bn pr" onclick="adv(5)">Run Tests <span>→</span></button></div>
+  </div>
+
+  <!-- ZONE 5 -->
+  <div class="zcn" id="zone-5">
+    <div class="zey">Zone 05</div>
+    <h2 class="zt">Testing Engine</h2>
+    <p class="zd">AI generates tests from requirements — not code. Every difference is classified on a four-tier drift scale. Humans adjudicate only what requires judgment.</p>
+    <div class="pi" id="tP"><div class="pd"><span></span><span></span><span></span></div><span>Test Creator generating suites...</span></div>
+    <div id="tR" style="display:none">
+      <div class="qg">
+        <div class="gc"><div class="gi p">✓</div><span class="gl">Coverage: 94.2%</span></div>
+        <div class="gc"><div class="gi p">✓</div><span class="gl">All unit tests pass</span></div>
+        <div class="gc"><div class="gi w">!</div><span class="gl">1 Type 2 pending</span></div>
+        <div class="gc"><div class="gi p">✓</div><span class="gl">Security scan clean</span></div>
+      </div>
+      <h3 class="sh2">Drift Classification</h3>
+      <table class="dt"><thead><tr><th>Test Case</th><th>Legacy</th><th>Modern</th><th>Classification</th></tr></thead><tbody>
+        <tr><td style="font-family:var(--fm);font-size:.78rem">Standard — $5,000</td><td style="font-family:var(--fm);font-size:.78rem">$4,500.00</td><td style="font-family:var(--fm);font-size:.78rem">$4,500.00</td><td><span class="db t0">Type 0 · Identical</span></td></tr>
+        <tr><td style="font-family:var(--fm);font-size:.78rem">Over-limit — $15K</td><td style="font-family:var(--fm);font-size:.78rem">DENIED 1001</td><td style="font-family:var(--fm);font-size:.78rem">DENIED 1001</td><td><span class="db t0">Type 0 · Identical</span></td></tr>
+        <tr><td style="font-family:var(--fm);font-size:.78rem">No policy</td><td style="font-family:var(--fm);font-size:.78rem">DENIED 1002</td><td style="font-family:var(--fm);font-size:.78rem">DENIED 1002</td><td><span class="db t0">Type 0 · Identical</span></td></tr>
+        <tr><td style="font-family:var(--fm);font-size:.78rem">Timestamp</td><td style="font-family:var(--fm);font-size:.78rem">1997-03-14</td><td style="font-family:var(--fm);font-size:.78rem">2026-02-24T…Z</td><td><span class="db t1">Type 1 · Acceptable</span></td></tr>
+        <tr style="background:rgba(229,161,0,.04)"><td style="font-family:var(--fm);font-size:.78rem">Rounding $99.995</td><td style="font-family:var(--fm);font-size:.78rem">$99.99</td><td style="font-family:var(--fm);font-size:.78rem">$100.00</td><td><span class="db t2">Type 2 · Semantic ⚠</span></td></tr>
+      </tbody></table>
+      <div class="hg" id="dG"><span class="hgl">Human Decision Required</span>
+        <p><strong>Type 2 — Rounding:</strong> COBOL truncates; Python rounds correctly. The $0.01 difference has regulatory implications at aggregate scale.</p>
+        <div class="ga">
+          <button class="bg ap" onclick="adj('a')">Accept Variance</button>
+          <button class="bg fl" onclick="adj('p')">Preserve Bug</button>
+          <button class="bg rj" onclick="adj('e')">Escalate to Compliance</button>
+        </div>
+      </div>
+      <div id="dD" style="display:none"></div>
+    </div>
+    <div class="zn"><button class="bn" onclick="adv(4)"><span>←</span> Generation</button><button class="bn pr" onclick="adv(6)">Deploy <span>→</span></button></div>
+  </div>
+
+  <!-- ZONE 6 -->
+  <div class="zcn" id="zone-6">
+    <div class="zey">Zone 06</div>
+    <h2 class="zt">Production Deployment</h2>
+    <p class="zd">The modern app deploys alongside legacy. Traffic migrates through five stages. Rollback is always instant.</p>
+    <h3 class="sh2">Tiered Slice Progression</h3>
+    <div class="tp" id="tPr">
+      <div class="ts cmp"><div class="tsn">Pure Logic</div><div class="tss">✓ Passed</div></div>
+      <div class="ts cmp"><div class="tsn">Boundary</div><div class="tss">✓ Passed</div></div>
+      <div class="ts act"><div class="tsn">Shadow</div><div class="tss">0.3% Type 2</div></div>
+      <div class="ts"><div class="tsn">Canary</div><div class="tss">Awaiting</div></div>
+      <div class="ts"><div class="tsn">Full</div><div class="tss">—</div></div>
+    </div>
+    <div class="cp" style="margin:2rem 0"><div class="cph"><span>Coexistence — Shadow Mode</span><span class="sb su">● Live</span></div>
+    <div class="cpb" style="font-size:.74rem"><pre style="color:#9B9492;line-height:2.1">
+  ┌─────────────────┐
+  │  Incoming Txn    │
+  └────────┬────────┘
+           │
+     ┌─────┴──────┐
+     │  Router     │
+     └──┬──────┬──┘
+        │      │
+   ┌────▼──┐ ┌─▼────────┐
+   │Legacy │ │ Modern    │
+   │<span style="color:#4CAF82">SERVES</span> │ │ <span style="color:#E5A100">SHADOW</span>    │
+   │result │ │ (compare  │
+   └───┬───┘ │  only)    │
+       │     └─────┬─────┘
+       │           │
+  ┌────▼───────────▼────┐
+  │  <span style="color:#5B8DEF">Drift Comparator</span>    │
+  │  Log all diffs      │
+  └─────────────────────┘</pre></div></div>
+    <div class="hg" id="pG"><span class="hgl">Human Decision Required</span>
+      <p><strong>Canary Promotion:</strong> 14 days shadow, 0.3% Type 2 (adjudicated), zero Type 3. Promoting routes 3% of live traffic to modern system. <strong>This decision cannot be made by AI.</strong></p>
+      <div class="ga">
+        <button class="bg ap" onclick="can()">Promote to Canary (3%)</button>
+        <button class="bg fl" onclick="ext()">Extend Shadow</button>
+      </div>
+    </div>
+    <div id="cD" style="display:none"></div>
+    <div class="zn"><button class="bn" onclick="adv(5)"><span>←</span> Testing</button><button class="bn pr" onclick="sum()">View Summary <span>→</span></button></div>
+  </div>
+</section>
+
+<section class="ss" id="summary">
+  <div class="hero-ey" style="opacity:1;animation:none">Pipeline Complete</div>
+  <h2 class="sst">From Legacy to <em>Modern</em></h2>
+  <div class="hero-r" style="opacity:1;animation:none"></div>
+  <p style="font-family:var(--fs);color:var(--tx2);max-width:540px;margin:0 auto;font-size:1.05rem;line-height:1.8">One COBOL claims system — 28 years old, 2 SMEs, 2.4M daily transactions — modernized to Python with zero downtime.</p>
+  <div class="ssg">
+    <div class="si"><div class="sv">6</div><div class="sl">Business rules extracted</div></div>
+    <div class="si"><div class="sv">94%</div><div class="sl">Test coverage from reqs</div></div>
+    <div class="si"><div class="sv">0</div><div class="sl">Source lines exposed</div></div>
+  </div>
+  <div style="max-width:620px;margin:3rem auto;text-align:left">
+    <h3 style="font-family:var(--fd);font-size:1.6rem;color:var(--dune);margin-bottom:1.25rem">What Made This Different</h3>
+    <div style="font-family:var(--fs);color:var(--tx2);line-height:1.9;font-size:.95rem">
+      <p style="margin-bottom:1rem"><strong style="color:var(--dune)">Not code translation.</strong> Rules extracted as tech-agnostic requirements. New app generated from those rules. Debt left behind.</p>
+      <p style="margin-bottom:1rem"><strong style="color:var(--dune)">Not big-bang cutover.</strong> Legacy ran alongside modern through five stages. Rollback always instant.</p>
+      <p style="margin-bottom:1rem"><strong style="color:var(--dune)">Not fully automated.</strong> Every drift adjudication and promotion required human sign-off. AI did the heavy lifting. Humans owned the risk.</p>
+      <p><strong style="color:var(--dune)">Repeatable.</strong> Same pipeline for the next system — any source language, any target.</p>
+    </div>
+  </div>
+  <div style="margin-top:3rem"><button class="btn-p" onclick="rst()">Run Another Migration <span class="ar">→</span></button></div>
+  <div style="margin-top:5rem;padding:2rem;border-top:1px solid var(--bdr)"><p style="font-family:var(--fn);font-size:.7rem;font-weight:500;color:var(--tx4);letter-spacing:.05em">Initiative Zero — Wealthsimple AI Builders Application<br>Proven at enterprise banking scale · Generalizable to any legacy modernization</p></div>
+</section>
+
+<div class="to" id="toast"></div>
+
+<script>
+let cz=1,ar=0,sr=0,gr=0,tr=0;
+function start(){document.getElementById('hero').style.display='none';document.getElementById('pipeline').classList.add('act');scrollTo({top:0,behavior:'smooth'})}
+function go(z){if(z<1||z>6)return;cz=z;document.querySelectorAll('.zs').forEach(s=>{const n=+s.dataset.zone;s.classList.remove('act','cmp');if(n===z)s.classList.add('act');else if(n<z)s.classList.add('cmp')});document.querySelectorAll('.zc:not(.fw)').forEach((c,i)=>c.classList.toggle('cmp',i<z-1));document.querySelectorAll('.zcn').forEach(e=>e.classList.remove('act'));const t=document.getElementById('zone-'+z);if(t)t.classList.add('act');setTimeout(()=>anim(z),100)}
+function adv(z){go(z);scrollTo({top:200,behavior:'smooth'})}
+function anim(z){if(z===2)runA();if(z===3)runS();if(z===4)runG();if(z===5)runT()}
+function runA(){if(ar)return;ar=1;setTimeout(()=>{document.getElementById('aP').style.display='none';document.getElementById('aR').style.display='block';setTimeout(()=>{document.getElementById('cF').style.strokeDashoffset=314-(314*82/100);let c=0;const i=setInterval(()=>{c++;document.getElementById('cV').textContent=c+'%';if(c>=82)clearInterval(i)},18)},300);toast('Analysis complete — confidence: 82%')},2000)}
+function runS(){if(sr)return;sr=1;setTimeout(()=>{document.getElementById('sP').style.display='none';document.getElementById('sR').style.display='block';document.querySelectorAll('.ri').forEach((r,i)=>setTimeout(()=>r.classList.add('vis'),i*280));toast('6 rules extracted + 1 behavioral observation')},2500)}
+function runG(){if(gr)return;gr=1;setTimeout(()=>{document.getElementById('gP').style.display='none';document.getElementById('gR').style.display='block';toast('Python application generated from requirements')},2000)}
+function runT(){if(tr)return;tr=1;setTimeout(()=>{document.getElementById('tP').style.display='none';document.getElementById('tR').style.display='block';toast('1 Type 2 drift requires adjudication')},2000)}
+function adj(d){const g=document.getElementById('dG'),r=document.getElementById('dD');const ts=new Date().toISOString().split('.')[0]+'Z';let h='';
+if(d==='a'){g.style.borderColor='var(--grn)';h=`<div style="padding:1.25rem;border:1px solid rgba(76,175,130,.3);background:rgba(76,175,130,.04);border-radius:10px"><span class="sb su">✓ Recorded</span><p style="margin-top:.75rem;color:var(--tx2);font-size:.9rem"><strong>ACCEPT_VARIANCE</strong> — Modern rounding correct. Type 1 going forward.<br><span style="font-family:var(--fm);font-size:.72rem;color:var(--tx3)">BA + Tech Lead · ${ts}</span></p></div>`}
+else if(d==='p'){g.style.borderColor='var(--yeld)';h=`<div style="padding:1.25rem;border:1px solid rgba(229,161,0,.3);background:rgba(229,161,0,.04);border-radius:10px"><span class="sb wa">⚠ Recorded</span><p style="margin-top:.75rem;color:var(--tx2);font-size:.9rem"><strong>PRESERVE_BUG</strong> — Legacy truncation maintained.<br><span style="font-family:var(--fm);font-size:.72rem;color:var(--tx3)">Tech Lead + BA · ${ts}</span></p></div>`}
+else{g.style.borderColor='var(--red)';h=`<div style="padding:1.25rem;border:1px solid rgba(232,99,74,.3);background:rgba(232,99,74,.04);border-radius:10px"><span class="sb da">↗ Escalated</span><p style="margin-top:.75rem;color:var(--tx2);font-size:.9rem">Sent to Compliance. Slice blocked.<br><span style="font-family:var(--fm);font-size:.72rem;color:var(--tx3)">Tech Lead · ${ts}</span></p></div>`}
+r.innerHTML=h;r.style.display='block';g.querySelector('.ga').style.display='none';toast('Adjudication recorded in governance ledger')}
+function can(){const g=document.getElementById('pG'),r=document.getElementById('cD');g.querySelector('.ga').style.display='none';r.innerHTML=`<div style="padding:1.25rem;border:1px solid rgba(76,175,130,.3);background:rgba(76,175,130,.04);border-radius:10px"><span class="sb su">✓ Canary Approved</span><p style="margin-top:.75rem;color:var(--tx2);font-size:.9rem">3% live traffic → modern. Legacy handles 97%.<br><span style="font-family:var(--fm);font-size:.72rem;color:var(--tx3)">BA + Tech Lead · ${new Date().toISOString().split('.')[0]}Z</span></p></div>`;r.style.display='block';const s=document.querySelectorAll('.ts');s[2].classList.remove('act');s[2].classList.add('cmp');s[2].querySelector('.tss').textContent='✓ Passed';s[3].classList.add('act');s[3].querySelector('.tss').textContent='● 3% live';toast('Canary approved — 3% routing to modern')}
+function ext(){const g=document.getElementById('pG'),r=document.getElementById('cD');g.querySelector('.ga').style.display='none';r.innerHTML=`<div style="padding:1.25rem;border:1px solid rgba(229,161,0,.3);background:rgba(229,161,0,.04);border-radius:10px"><span class="sb wa">⏳ Extended</span><p style="margin-top:.75rem;color:var(--tx2);font-size:.9rem">Shadow +14 days. New sign-off needed.<br><span style="font-family:var(--fm);font-size:.72rem;color:var(--tx3)">Tech Lead · ${new Date().toISOString().split('.')[0]}Z</span></p></div>`;r.style.display='block';toast('Shadow extended')}
+function sum(){document.getElementById('pipeline').classList.remove('act');document.getElementById('summary').classList.add('act');scrollTo({top:0,behavior:'smooth'})}
+function rst(){ar=sr=gr=tr=0;cz=1;['aP','sP','gP','tP'].forEach(id=>document.getElementById(id).style.display='flex');['aR','sR','gR','tR'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('dG').querySelector('.ga').style.display='flex';document.getElementById('dG').style.borderColor='var(--yel)';document.getElementById('dD').style.display='none';document.getElementById('pG').querySelector('.ga').style.display='flex';document.getElementById('cD').style.display='none';document.querySelectorAll('.ri').forEach(r=>r.classList.remove('vis'));const s=document.querySelectorAll('.ts');s.forEach(x=>{x.classList.remove('act','cmp')});s[0].classList.add('cmp');s[0].querySelector('.tss').textContent='✓ Passed';s[1].classList.add('cmp');s[1].querySelector('.tss').textContent='✓ Passed';s[2].classList.add('act');s[2].querySelector('.tss').textContent='0.3% Type 2';s[3].querySelector('.tss').textContent='Awaiting';s[4].querySelector('.tss').textContent='—';document.getElementById('cF').style.strokeDashoffset=314;document.getElementById('cV').textContent='0%';document.getElementById('summary').classList.remove('act');document.getElementById('pipeline').classList.add('act');go(1);scrollTo({top:0,behavior:'smooth'})}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('sh');setTimeout(()=>t.classList.remove('sh'),3500)}
+</script>
+</body>
+</html>
