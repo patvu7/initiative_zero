@@ -2,38 +2,28 @@
 
 ## What the Human Can Now Do
 
-A single engineering team can safely modernize a legacy application processing billions in daily transactions, in weeks instead of years, without risking the live system.
+A team of 3 engineers can safely modernize a legacy system processing billions in daily transactions — in 6 weeks, not 18 months — without risking the live system.
 
-Previously, this required large specialist teams, multi-year timelines, and risky cutovers. Business logic was buried in code nobody understood. Traditional approaches failed: lift-and-shift relocates problems to newer infrastructure, and like-for-like translation carries forward technical debt while staying coupled to the original structure.
+Today, that work requires 12–15 specialists, multi-year timelines, and a high-risk cutover. Developers spend 17.3 hours per week on technical debt instead of building (McKinsey). 70% of organizations cite tech debt as their primary innovation blocker (Protiviti), rising to 78% in financial services. Meanwhile, 250 billion lines of COBOL remain in production worldwide, but the engineers who wrote them are retiring. Traditional migrations fail — lift-and-shift relocates problems, and line-by-line translation carries forward decades of debt.
 
-Initiative Zero takes a different path. AI agents extract business logic and produce a clean specification of what the system does. A new application is generated from scratch. Technical debt is left behind, and the old system runs safely alongside the new one the entire time.
+Initiative Zero takes a different path. AI agents extract business rules from legacy code and produce a clean, technology-agnostic specification of *what the system does*. A new application is generated from scratch, in any target language. Technical debt is left behind entirely. The same pipeline applies to claims processing, portfolio rebalancing engines, tax-lot accounting, compliance reporting, or any system where critical business logic is trapped in aging code.
 
 ## What AI Is Responsible For
 
 AI handles work that previously required scarce specialists, producing reusable artifacts at each stage:
 
-**Comprehension.** AI analyzes legacy code (COBOL, Java, C#) and produces a standardized **Analysis Report**: dependencies, technical debt, coverage gaps, and migration economics.
+**Comprehension.** AI analyzes legacy code (COBOL, Java, C#) and produces a standardized Analysis Report: dependency maps, technical debt assessment, coverage gaps, and migration economics — including a confidence score that quantifies readiness.
 
-**Business Rule Extraction.** AI distills business logic from implementation details, validated against production behavior. The output is a **technology-agnostic requirements document** describing what the system does, not how it was built.
+**Business Rule Extraction.** AI distills business logic from implementation details, cross-referenced against actual production behavior via read-only telemetry. The output is a technology-agnostic requirements document describing *what* the system does, not *how* it was built.
 
-**Code Generation.** From that document, AI generates a new application in any target language. Greenfield development, not translation.
+**Code Generation.** From that document alone — no source code — external AI generates a greenfield application. Each method traces to a named business rule.
 
-**Testing and Drift Classification.** AI generates test suites from the same requirements, runs both systems against identical inputs, and classifies every difference on a four-tier scale. The output is a **drift report with adjudication queue**.
+**Testing and Drift Classification.** AI generates tests from the same requirements, runs both systems against identical inputs, and classifies every difference: identical, cosmetic, semantic (needs human judgment), or breaking.
 
 ## Where AI Must Stop
 
-Three points in the pipeline require human judgment:
-
-**1. Validating the product specification before it crosses the security firewall.** Domain experts must confirm extracted requirements are correct and complete. This is the only artifact that reaches external AI for code generation; errors here propagate downstream.
-
-**2. Adjudicating semantic drift.** When output differences are not cosmetic but not clearly wrong, a BA, tech lead, or compliance specialist must decide: is the modern behavior acceptable, a legacy bug to preserve, or a defect to fix?
-
-**3. Authorizing production deployment.** The quality gate requires 90%+ coverage, all tests passing, all drift adjudicated, and a clean security scan. AI surfaces evidence; only a human can accept the risk of serving the system to customers.
-
-## How It Deploys Safely: The Coexistence Model
-
-The new application starts in read-only mode alongside legacy, pointing at the same database. Legacy handles all writes. Monitoring compares outputs transaction by transaction. Each slice progresses through staged gates: isolation, read-only, shadow, canary, then full production. Legacy remains live at every stage and rollback is instant. After migration, AI tooling is decommissioned. What remains is standard code any engineer can maintain.
+**Validating the specification before it crosses the security firewall.** Domain experts must confirm extracted rules are correct and complete. This is the only artifact that reaches external AI; errors here propagate through every downstream zone. This decision must remain human because AI cannot verify its own comprehension of business intent — only someone who understands the domain can confirm that what the system *should* do matches what the code *actually* does.
 
 ## What Would Break First at Scale
 
-The SME validation bottleneck. AI can extract business rules from dozens of systems at once, but domain experts can only validate so many at a time. Each validated system teaches the AI patterns that reduce the next system's burden, but this bottleneck must be planned for.
+The SME validation bottleneck. AI can extract rules from dozens of systems in parallel, but each extraction requires approximately 2 weeks of domain expert review time. With a typical pool of 2–3 SMEs per legacy system and 5–7 critical systems in a portfolio, the queue becomes the critical path. Each validated system teaches the AI reusable domain patterns (client onboarding, compliance checks, transaction routing share common structures), reducing the next system's review burden — but the first 2–3 systems absorb the highest cost, and that must be planned for.
