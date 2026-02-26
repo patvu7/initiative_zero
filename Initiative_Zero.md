@@ -32,7 +32,7 @@ This sign-off matters structurally because the validated specification is the on
 
 ## The Human's Role After Deployment
 
-The human's job doesn't end at sign-off. After the modernized system goes live, the 3-person team shifts into a monitoring and adjudication role. They watch drift classification dashboards that continuously compare the new system's outputs against the legacy system running in parallel. When the system flags a semantic difference, one that isn't clearly cosmetic or clearly breaking, a human decides whether it's acceptable or needs investigation.
+The human's job doesn't end at sign-off. After the modernized system goes live, the pod shifts into a monitoring and adjudication role. They watch drift classification dashboards that continuously compare the new system's outputs against the legacy system running in parallel. When the system flags a semantic difference, one that isn't clearly cosmetic or clearly breaking, a human decides whether it's acceptable or needs investigation.
 
 Over time, as confidence builds and the legacy system is decommissioned, the team's focus moves from monitoring parity to improving the new system: adding capabilities that the old architecture couldn't support, like real-time rebalancing triggers or client-specific optimization rules. The AI keeps working as a thought partner through this phase too, helping the team evaluate new feature designs and catch regressions before they reach production.
 
