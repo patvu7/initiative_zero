@@ -2,7 +2,7 @@
 
 ## What the Human Can Now Do
 
-A team of 3 engineers can safely modernize Wealthsimple's portfolio rebalancing engine, moving it from overnight batch processing to real-time execution, in 8 weeks instead of 18 months, without risking the live system.
+A pod of engineers can safely modernize Wealthsimple's portfolio rebalancing engine, moving it from overnight batch processing to real-time execution, in 8 weeks instead of 18 months, without risking the live system.
 
 Today, that work requires 12–15 specialists, multi-year timelines, and a high-risk cutover. Developers spend 17.3 hours per week on technical debt instead of building (McKinsey). 70% of organizations cite tech debt as their primary innovation blocker (Protiviti), rising to 78% in financial services. Meanwhile, 250 billion lines of COBOL remain in production worldwide, but the engineers who wrote them are retiring. Traditional migrations fail. Lift-and-shift just relocates problems, and line-by-line translation carries forward decades of debt.
 
