@@ -232,14 +232,50 @@
           </table>
         </div>
 
+        <!-- ─── SME Review Panel ─── -->
         <div class="human-gate" id="sme-gate">
           <div class="human-gate-header">⚠ Human Gate — SME Validation Required</div>
           <div class="human-gate-body">
-            <div class="gate-desc">Confirm the extracted specification is correct and complete before it crosses the security firewall. OBS-01 (month-end batch recalculation) was found in DB2 logs but not in source — requires domain expert review.</div>
-            <div class="gate-actions" id="sme-actions">
-              <button class="btn green" onclick="smeSign('approve')">✓ Approve Spec — S. Chen, Staff Eng</button>
-              <button class="btn amber" onclick="smeSign('flag')">Flag for BA Review</button>
+            <div class="gate-desc">
+              Review the extracted specification before it crosses the security firewall.
+              All behavioral observations (OBS-*) require explicit SME confirmation.
             </div>
+
+            <!-- Step 1: Review trigger -->
+            <div id="sme-pre-review">
+              <div class="gate-actions">
+                <button class="btn primary" onclick="openSmeReview()">Review Spec →</button>
+                <button class="btn" onclick="downloadPrd()">↓ Download PRD</button>
+              </div>
+            </div>
+
+            <!-- Step 2: Review panel (hidden until triggered) -->
+            <div id="sme-review-panel" style="display:none">
+              <!-- Requirements doc preview -->
+              <div class="section-label" style="margin-top:12px">Requirements Document Preview</div>
+              <div class="code-viewer" style="margin-bottom:12px">
+                <div class="code-header">
+                  <span class="code-filename">requirements-spec.txt</span>
+                  <span style="font-family:var(--mono);font-size:9px;color:var(--tx3)">TECH-AGNOSTIC</span>
+                </div>
+                <div class="code-body" style="max-height:300px">
+                  <pre id="sme-req-doc-preview">Loading…</pre>
+                </div>
+              </div>
+
+              <!-- Flagged rules for review -->
+              <div class="section-label" id="sme-flagged-label" style="display:none">Items Requiring SME Review</div>
+              <div id="sme-flagged-rules"></div>
+
+              <!-- Approval actions (enabled after all flags reviewed) -->
+              <div class="gate-actions" style="margin-top:14px" id="sme-actions">
+                <button class="btn green" id="btn-approve-spec" disabled onclick="smeSign('approve')">
+                  ✓ Approve & Cross Firewall — S. Chen, Staff Eng
+                </button>
+                <button class="btn amber" onclick="smeSign('flag')">Flag for BA Review</button>
+              </div>
+            </div>
+
             <div class="decision-record" id="sme-decision"></div>
           </div>
         </div>
