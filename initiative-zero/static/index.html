@@ -88,81 +88,28 @@
         <h2 class="zone-title">Legacy Environment</h2>
       </div>
 
+      <div style="margin-bottom: 12px;">
+        <select id="file-selector" class="btn" style="min-width: 280px; padding: 8px 12px;">
+          <option value="">Select a legacy file…</option>
+        </select>
+      </div>
+
       <div class="code-viewer">
         <div class="code-header">
-          <span class="code-filename">src/claims/claims_processing.cbl</span>
+          <span class="code-filename" id="code-filename-display">No file selected</span>
           <span class="code-lang">COBOL</span>
         </div>
-        <div class="code-body"><pre><span class="cmt">      * ══════════════════════════════════════════════</span>
-<span class="cmt">      * CLAIMS PROCESSING — CROWN JEWEL SYSTEM</span>
-<span class="cmt">      * Last modified: 1997-03-14 by J. Morrison</span>
-<span class="cmt">      * WARNING: Do not modify CALC-PAYOUT section</span>
-<span class="cmt">      * ══════════════════════════════════════════════</span>
-       <span class="kw">IDENTIFICATION DIVISION</span>.
-       <span class="kw">PROGRAM-ID</span>. PROCESS-CLAIM.
-
-       <span class="kw">DATA DIVISION</span>.
-       <span class="kw">WORKING-STORAGE SECTION</span>.
-       <span class="num">01</span> WS-CLAIM-RECORD.
-          <span class="num">05</span> WS-CLAIM-ID          <span class="type">PIC 9(8)</span>.
-          <span class="num">05</span> WS-POLICY-NUMBER     <span class="type">PIC X(10)</span>.
-          <span class="num">05</span> WS-CLAIM-AMOUNT      <span class="type">PIC 9(7)V99</span>.
-          <span class="num">05</span> WS-DEDUCTIBLE        <span class="type">PIC 9(5)V99</span>.
-          <span class="num">05</span> WS-COVERAGE-LIMIT    <span class="type">PIC 9(7)V99</span>.
-          <span class="num">05</span> WS-APPROVAL-STATUS   <span class="type">PIC X(1)</span>.
-             <span class="num">88</span> APPROVED             <span class="kw">VALUE</span> <span class="str">'A'</span>.
-             <span class="num">88</span> DENIED               <span class="kw">VALUE</span> <span class="str">'D'</span>.
-             <span class="num">88</span> PENDING              <span class="kw">VALUE</span> <span class="str">'P'</span>.
-       <span class="num">01</span> WS-PAYOUT-AMOUNT       <span class="type">PIC 9(7)V99</span>.
-       <span class="num">01</span> WS-NET-CLAIM           <span class="type">PIC 9(7)V99</span>.
-       <span class="num">01</span> WS-ERROR-CODE          <span class="type">PIC 9(4)</span>.
-
-       <span class="kw">PROCEDURE DIVISION</span>.
-       MAIN-PROCESS.
-           <span class="kw">PERFORM</span> VALIDATE-CLAIM
-           <span class="kw">IF</span> WS-ERROR-CODE <span class="op">=</span> <span class="num">0</span>
-              <span class="kw">PERFORM</span> CALC-PAYOUT
-              <span class="kw">PERFORM</span> UPDATE-STATUS
-              <span class="kw">PERFORM</span> WRITE-AUDIT-LOG
-           <span class="kw">END-IF</span>
-           <span class="kw">STOP RUN</span>.
-
-       VALIDATE-CLAIM.
-           <span class="kw">IF</span> WS-CLAIM-AMOUNT <span class="op">&gt;</span> WS-COVERAGE-LIMIT
-              <span class="kw">MOVE</span> <span class="num">1001</span> <span class="kw">TO</span> WS-ERROR-CODE
-              <span class="kw">SET</span> DENIED <span class="kw">TO TRUE</span>
-           <span class="kw">ELSE IF</span> WS-POLICY-NUMBER <span class="op">=</span> <span class="str">SPACES</span>
-              <span class="kw">MOVE</span> <span class="num">1002</span> <span class="kw">TO</span> WS-ERROR-CODE
-              <span class="kw">SET</span> DENIED <span class="kw">TO TRUE</span>
-           <span class="kw">ELSE</span>
-              <span class="kw">MOVE</span> <span class="num">0</span> <span class="kw">TO</span> WS-ERROR-CODE
-           <span class="kw">END-IF</span>.
-
-       CALC-PAYOUT.
-<span class="cmt">      * CRITICAL: Deductible logic — regulatory</span>
-           <span class="kw">SUBTRACT</span> WS-DEDUCTIBLE <span class="kw">FROM</span> WS-CLAIM-AMOUNT
-              <span class="kw">GIVING</span> WS-NET-CLAIM
-           <span class="kw">IF</span> WS-NET-CLAIM <span class="op">&gt;</span> WS-COVERAGE-LIMIT
-              <span class="kw">MOVE</span> WS-COVERAGE-LIMIT <span class="kw">TO</span> WS-PAYOUT-AMOUNT
-           <span class="kw">ELSE</span>
-              <span class="kw">MOVE</span> WS-NET-CLAIM <span class="kw">TO</span> WS-PAYOUT-AMOUNT
-           <span class="kw">END-IF</span>
-           <span class="kw">SET</span> APPROVED <span class="kw">TO TRUE</span>.</pre></div>
+        <div class="code-body"><pre id="code-display">Select a file above to view source code.</pre></div>
       </div>
 
       <div class="file-meta">
         <div class="file-meta-item"><div class="file-meta-label">Language</div><div class="file-meta-value">COBOL</div></div>
-        <div class="file-meta-item"><div class="file-meta-label">Database</div><div class="file-meta-value">DB2</div></div>
-        <div class="file-meta-item"><div class="file-meta-label">LOC</div><div class="file-meta-value">14,280</div></div>
-        <div class="file-meta-item"><div class="file-meta-label">Last Modified</div><div class="file-meta-value">1997-03-14</div></div>
-        <div class="file-meta-item"><div class="file-meta-label">Daily Txns</div><div class="file-meta-value">2.4M</div></div>
-        <div class="file-meta-item"><div class="file-meta-label">System Age</div><div class="file-meta-value warn">28 yrs</div></div>
-        <div class="file-meta-item"><div class="file-meta-label">Remaining SMEs</div><div class="file-meta-value warn">2</div></div>
-        <div class="file-meta-item"><div class="file-meta-label">Criticality</div><div class="file-meta-value">Tier 1</div></div>
+        <div class="file-meta-item"><div class="file-meta-label">LOC</div><div class="file-meta-value" id="meta-loc">—</div></div>
+        <div class="file-meta-item"><div class="file-meta-label">File</div><div class="file-meta-value" id="meta-filename">—</div></div>
       </div>
 
       <div class="action-bar">
-        <button class="btn-advance" onclick="advanceZone(2)">Run Analysis →</button>
+        <button class="btn-advance" onclick="createRunAndAdvance()">Run Analysis →</button>
       </div>
     </div>
 
@@ -179,34 +126,34 @@
       </div>
 
       <div id="a-results" style="display:none">
-        <div class="data-grid">
+        <div class="data-grid" id="analysis-grid">
           <div class="data-card">
             <div class="data-card-title"><span class="dot"></span>App Analysis</div>
-            <div class="data-row"><span class="data-label">Purpose</span><span class="data-val">Claims adjudication & payout</span></div>
-            <div class="data-row"><span class="data-label">Stack</span><span class="data-val">COBOL → DB2 → JCL</span></div>
-            <div class="data-row"><span class="data-label">Dependencies</span><span class="data-val">4 upstream, 7 downstream</span></div>
-            <div class="data-row"><span class="data-label">Criticality</span><span class="data-val">Tier 1</span></div>
+            <div class="data-row"><span class="data-label">Purpose</span><span class="data-val" id="a-purpose">—</span></div>
+            <div class="data-row"><span class="data-label">Stack</span><span class="data-val" id="a-stack">—</span></div>
+            <div class="data-row"><span class="data-label">Dependencies</span><span class="data-val" id="a-deps">—</span></div>
+            <div class="data-row"><span class="data-label">Criticality</span><span class="data-val" id="a-criticality">—</span></div>
           </div>
           <div class="data-card">
             <div class="data-card-title"><span class="dot"></span>Code Analysis</div>
-            <div class="data-row"><span class="data-label">Cyclomatic</span><span class="data-val warn">34 (high)</span></div>
-            <div class="data-row"><span class="data-label">Dead code</span><span class="data-val warn">~18%</span></div>
-            <div class="data-row"><span class="data-label">Security</span><span class="data-val bad">2 unpatched</span></div>
-            <div class="data-row"><span class="data-label">Workarounds</span><span class="data-val warn">6 identified</span></div>
+            <div class="data-row"><span class="data-label">Cyclomatic</span><span class="data-val" id="a-cyclomatic">—</span></div>
+            <div class="data-row"><span class="data-label">Dead code</span><span class="data-val" id="a-deadcode">—</span></div>
+            <div class="data-row"><span class="data-label">Security</span><span class="data-val" id="a-security">—</span></div>
+            <div class="data-row"><span class="data-label">Workarounds</span><span class="data-val" id="a-workarounds">—</span></div>
           </div>
           <div class="data-card">
             <div class="data-card-title"><span class="dot"></span>Test Analysis</div>
-            <div class="data-row"><span class="data-label">Coverage</span><span class="data-val bad">23%</span></div>
-            <div class="data-row"><span class="data-label">Unit tests</span><span class="data-val">Exists (sparse)</span></div>
-            <div class="data-row"><span class="data-label">Integration</span><span class="data-val bad">None</span></div>
-            <div class="data-row"><span class="data-label">Edge cases</span><span class="data-val bad">Month-end untested</span></div>
+            <div class="data-row"><span class="data-label">Coverage</span><span class="data-val" id="a-coverage">—</span></div>
+            <div class="data-row"><span class="data-label">Unit tests</span><span class="data-val" id="a-unit">—</span></div>
+            <div class="data-row"><span class="data-label">Integration</span><span class="data-val" id="a-integration">—</span></div>
+            <div class="data-row"><span class="data-label">Edge cases</span><span class="data-val" id="a-edgecases">—</span></div>
           </div>
           <div class="data-card">
             <div class="data-card-title"><span class="dot"></span>Cost Analysis</div>
-            <div class="data-row"><span class="data-label">Annual maint.</span><span class="data-val">$1.2M/yr</span></div>
-            <div class="data-row"><span class="data-label">AI migration</span><span class="data-val good">$340K</span></div>
-            <div class="data-row"><span class="data-label">Manual migration</span><span class="data-val">$2.8M / 18 mo</span></div>
-            <div class="data-row"><span class="data-label">ROI breakeven</span><span class="data-val good">4 months</span></div>
+            <div class="data-row"><span class="data-label">Annual maint.</span><span class="data-val" id="a-annual">—</span></div>
+            <div class="data-row"><span class="data-label">AI migration</span><span class="data-val" id="a-ai-cost">—</span></div>
+            <div class="data-row"><span class="data-label">Manual migration</span><span class="data-val" id="a-manual-cost">—</span></div>
+            <div class="data-row"><span class="data-label">ROI breakeven</span><span class="data-val" id="a-roi">—</span></div>
           </div>
         </div>
 
@@ -301,72 +248,18 @@
         <div class="split-view">
           <div class="code-viewer">
             <div class="code-header"><span class="code-filename">requirements.txt</span><span style="font-family:var(--mono);font-size:9px;color:var(--tx3)">INPUT</span></div>
-            <div class="code-body"><pre><span class="cmt"># Claims Processing — Business Requirements</span>
-<span class="cmt"># Initiative Zero / Strainer Output</span>
-<span class="cmt"># Approved: S. Chen, 2026-02-25</span>
-
-<span class="str">BR-001</span>  Deny if claim_amount > coverage_limit
-        Error code: 1001
-
-<span class="str">BR-002</span>  Deny if policy_number is blank
-        Error code: 1002
-
-<span class="str">BR-003</span>  net_claim = claim_amount − deductible
-
-<span class="str">BR-004</span>  payout = min(net_claim, coverage_limit)
-
-<span class="str">BR-005</span>  Set status = APPROVED after calc
-
-<span class="str">BR-006</span>  Write immutable audit log per decision
-
-<span class="cmt"># Currency: CAD, 2 decimal, non-negative</span>
-<span class="cmt"># All amounts rounded HALF_UP</span></pre></div>
+            <div class="code-body"><pre id="gen-requirements-display">Loading requirements…</pre></div>
           </div>
           <div class="code-viewer">
-            <div class="code-header"><span class="code-filename">claim_service.py</span><span class="code-lang">Python</span></div>
-            <div class="code-body"><pre><span class="kw">from</span> decimal <span class="kw">import</span> Decimal, ROUND_HALF_UP
-<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
-<span class="kw">from</span> enum <span class="kw">import</span> Enum
+            <div class="code-header"><span class="code-filename" id="gen-code-filename">generated.py</span><span class="code-lang">Python</span></div>
+            <div class="code-body"><pre id="gen-code-display">Loading generated code…</pre></div>
+          </div>
+        </div>
 
-<span class="kw">class</span> <span class="type">ClaimStatus</span>(Enum):
-    APPROVED = <span class="str">"A"</span>
-    DENIED   = <span class="str">"D"</span>
-    PENDING  = <span class="str">"P"</span>
-
-<span class="dec">@dataclass</span>
-<span class="kw">class</span> <span class="type">ClaimRecord</span>:
-    claim_id: <span class="type">str</span>
-    policy_number: <span class="type">str</span>
-    claim_amount: <span class="type">Decimal</span>
-    deductible: <span class="type">Decimal</span>
-    coverage_limit: <span class="type">Decimal</span>
-    status: <span class="type">ClaimStatus</span> = ClaimStatus.PENDING
-    payout: <span class="type">Decimal</span> = Decimal(<span class="str">"0"</span>)
-
-<span class="kw">class</span> <span class="type">ClaimProcessor</span>:
-    <span class="str">"""Process claims per BR-001..006"""</span>
-
-    <span class="kw">def</span> <span class="fn">process</span>(self, c: ClaimRecord):
-        err = self.<span class="fn">_validate</span>(c)
-        <span class="kw">if</span> err:
-            c.status = ClaimStatus.DENIED
-            <span class="kw">return</span> c
-        <span class="cmt"># BR-003: net = claim - deductible</span>
-        net = (c.claim_amount - c.deductible
-              ).quantize(Decimal(<span class="str">"0.01"</span>),
-                         rounding=ROUND_HALF_UP)
-        <span class="cmt"># BR-004: cap at coverage limit</span>
-        c.payout = <span class="fn">min</span>(net, c.coverage_limit)
-        <span class="cmt"># BR-005</span>
-        c.status = ClaimStatus.APPROVED
-        <span class="kw">return</span> c
-
-    <span class="kw">def</span> <span class="fn">_validate</span>(self, c):
-        <span class="kw">if</span> c.claim_amount > c.coverage_limit:
-            <span class="kw">return</span> <span class="num">1001</span>  <span class="cmt"># BR-001</span>
-        <span class="kw">if not</span> c.policy_number.strip():
-            <span class="kw">return</span> <span class="num">1002</span>  <span class="cmt"># BR-002</span>
-        <span class="kw">return</span> <span class="kw">None</span></pre></div>
+        <div id="gen-prompt-panel" style="margin-top:16px;display:none;">
+          <button class="btn" onclick="toggleGenPrompt()" id="gen-prompt-toggle" style="margin-bottom:8px;">▶ View Generation Prompt (Firewall Proof)</button>
+          <div id="gen-prompt-content" style="display:none;background:var(--blue-dim);border:1px solid var(--blue);border-radius:6px;padding:14px;max-height:400px;overflow-y:auto;">
+            <pre id="gen-prompt-text" style="font-family:var(--mono);font-size:11px;color:var(--tx2);white-space:pre-wrap;"></pre>
           </div>
         </div>
 
@@ -399,24 +292,24 @@
         <div class="section-label">Quality Gate</div>
         <div class="quality-gate">
           <div class="qg-item">
-            <div class="qg-icon pass">✓</div>
-            <span class="qg-text">Code Coverage</span>
-            <span class="qg-val" style="color:var(--green-tx)">94.2%</span>
+            <div class="qg-icon" id="qg-pass-icon">—</div>
+            <span class="qg-text">Tests Passed</span>
+            <span class="qg-val" id="qg-pass-val">—</span>
           </div>
           <div class="qg-item">
-            <div class="qg-icon pass">✓</div>
-            <span class="qg-text">Unit Tests</span>
-            <span class="qg-val" style="color:var(--green-tx)">47/47</span>
+            <div class="qg-icon" id="qg-identical-icon">—</div>
+            <span class="qg-text">Identical (Type 0)</span>
+            <span class="qg-val" id="qg-identical-val">—</span>
           </div>
           <div class="qg-item">
-            <div class="qg-icon warn">!</div>
+            <div class="qg-icon" id="qg-drift-icon">—</div>
             <span class="qg-text">Drift Adjudication</span>
-            <span class="qg-val" style="color:var(--amber-tx)">1 pending</span>
+            <span class="qg-val" id="qg-drift-val">—</span>
           </div>
           <div class="qg-item">
-            <div class="qg-icon pass">✓</div>
-            <span class="qg-text">Security Scan</span>
-            <span class="qg-val" style="color:var(--green-tx)">Clean</span>
+            <div class="qg-icon" id="qg-breaking-icon">—</div>
+            <span class="qg-text">Breaking (Type 3)</span>
+            <span class="qg-val" id="qg-breaking-val">—</span>
           </div>
         </div>
 
@@ -424,38 +317,7 @@
         <div class="code-viewer" style="margin-bottom:0">
           <table class="test-table">
             <thead><tr><th>Test Case</th><th>Legacy Output</th><th>Modern Output</th><th>Classification</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>Standard claim — $5,000</td>
-                <td>$4,500.00</td>
-                <td>$4,500.00</td>
-                <td><span class="status-chip ok">Type 0 · Identical</span></td>
-              </tr>
-              <tr>
-                <td>Over-limit — $15,000</td>
-                <td>DENIED 1001</td>
-                <td>DENIED 1001</td>
-                <td><span class="status-chip ok">Type 0 · Identical</span></td>
-              </tr>
-              <tr>
-                <td>Blank policy</td>
-                <td>DENIED 1002</td>
-                <td>DENIED 1002</td>
-                <td><span class="status-chip ok">Type 0 · Identical</span></td>
-              </tr>
-              <tr>
-                <td>Timestamp format</td>
-                <td>1997-03-14</td>
-                <td>2026-02-25T09:14:00Z</td>
-                <td><span class="status-chip info">Type 1 · Acceptable</span></td>
-              </tr>
-              <tr class="highlight">
-                <td>Rounding — $99.995</td>
-                <td>$99.99</td>
-                <td>$100.00</td>
-                <td><span class="status-chip warn">Type 2 · Semantic ⚠</span></td>
-              </tr>
-            </tbody>
+            <tbody id="test-tbody"></tbody>
           </table>
         </div>
 
