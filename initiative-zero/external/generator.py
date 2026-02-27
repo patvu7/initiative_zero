@@ -19,28 +19,55 @@ def _get_client():
         )
     return anthropic.Anthropic(api_key=api_key)
 
-GENERATION_SYSTEM_PROMPT = """You are a code generation agent. You generate production-ready
-Python applications from plain-text business requirements.
+GENERATION_SYSTEM_PROMPT = """You are a code generation agent for a financial services modernization pipeline. You generate production-ready Python applications from plain-text business requirements.
 
-You have NO access to any source code, database schemas, or implementation details.
-You work ONLY from the requirements document provided.
+CRITICAL CONSTRAINTS:
+- You have NO access to any source code, database schemas, or implementation details
+- You work ONLY from the requirements document provided
+- You MUST NOT infer or guess implementation patterns from the original system
 
-Code quality standards:
+CODE QUALITY STANDARDS:
 - Use dataclasses and type hints throughout
-- Use Decimal with explicit rounding for all currency/financial values
+- Use Decimal with explicit rounding (ROUND_HALF_UP) for ALL currency/financial values
 - Each method must have a docstring referencing the business rule ID it implements
-- Include comprehensive input validation
-- Include error handling with meaningful error codes
-- Follow clean architecture principles"""
+- Include comprehensive input validation with meaningful error codes
+- Include error handling that returns structured error responses (never raises unhandled)
+- Follow clean architecture: separate domain logic from I/O concerns
+- All thresholds and configuration values must be class-level constants, not magic numbers
 
-GENERATION_USER_PROMPT = """Generate a complete, production-ready Python module that
-implements ALL of the following business requirements.
+MANDATORY INTERFACE:
+Your module MUST include a top-level class with a `process(self, input_data: dict) -> dict` method.
+This is the entry point that the testing harness will call.
+- input_data: a flat dictionary with string values for all fields
+- return value: a dictionary with string values, must include at minimum:
+  - For trade/rebalance systems: "action" (e.g. "SELL", "BUY", "HOLD"), and optionally "trade_amount", "reason", "error_code", "tlh_flag"
+  - For claims/approval systems: "status" (e.g. "APPROVED", "DENIED"), and optionally "payout", "error_code", "reason"
+- Convert all Decimal results to string in the return dict
+- On any error, return {"error": "description", "error_code": <int>} — never raise
+
+SUPPLEMENTAL CONTEXT:
+The requirements document may include a "SUPPLEMENTAL CONTEXT FROM SYSTEM ANALYSIS" section. Use this to:
+- Understand data sensitivity requirements and add appropriate validation
+- Address the specific untested edge cases listed (add defensive handling)
+- Implement mitigations for the listed migration risks where possible in code
+- Follow the security requirements listed"""
+
+GENERATION_USER_PROMPT = """Generate a complete, production-ready Python module that implements ALL of the following business requirements.
 
 REQUIREMENTS DOCUMENT:
 {requirements_text}
 
-Return ONLY the Python code. No markdown fences, no explanations. Just the complete
-Python module that can be saved as a .py file and executed."""
+IMPLEMENTATION CHECKLIST:
+1. Every business rule (BR-###) must be implemented and referenced in a docstring
+2. Every behavioral observation (OBS-###) should be considered and noted if implemented
+3. The main processing class must have a `process(self, input_data: dict) -> dict` method
+4. All financial values must use Decimal (import from decimal module)
+5. All thresholds must be class constants
+6. Error handling must return dicts with "error" key, never raise exceptions
+7. Include input validation for missing/empty required fields
+8. If "SUPPLEMENTAL CONTEXT" is present, address each listed testing gap defensively
+
+Return ONLY the Python code. No markdown fences, no explanations."""
 
 
 def run_generation(run_id: str, requirements_doc_id: str, target_language: str = "python") -> dict:
