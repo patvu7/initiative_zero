@@ -1,8 +1,19 @@
+import os
 import json
 import anthropic
 from database import get_db, new_id, now_iso, strip_json_fences
 
-client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY env var
+
+def _get_client():
+    """Create Anthropic client on demand so it always reads the current API key."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY environment variable is not set. "
+            "Please add your API key to Secrets (lock icon in Replit) or "
+            "export ANTHROPIC_API_KEY in your environment."
+        )
+    return anthropic.Anthropic(api_key=api_key)
 
 ANALYSIS_SYSTEM_PROMPT = """You are a legacy code analysis agent for a financial services
 code modernization pipeline. You analyze source code and return structured assessments.
@@ -56,12 +67,15 @@ def run_analysis(run_id: str, source_code: str, language: str = "COBOL") -> dict
     prompt = ANALYSIS_USER_PROMPT.format(language=language, source_code=source_code)
 
     try:
+        client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=2000,
             system=ANALYSIS_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}]
         )
+    except anthropic.AuthenticationError as e:
+        return {"error": f"API key authentication failed: {e}. Check that ANTHROPIC_API_KEY is set to a valid key."}
     except Exception as e:
         return {"error": f"Claude API call failed: {e}"}
 

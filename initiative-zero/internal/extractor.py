@@ -1,9 +1,20 @@
+import os
 import json
 import hashlib
 import anthropic
 from database import get_db, new_id, now_iso, strip_json_fences
 
-client = anthropic.Anthropic()
+
+def _get_client():
+    """Create Anthropic client on demand so it always reads the current API key."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY environment variable is not set. "
+            "Please add your API key to Secrets (lock icon in Replit) or "
+            "export ANTHROPIC_API_KEY in your environment."
+        )
+    return anthropic.Anthropic(api_key=api_key)
 
 EXTRACTION_SYSTEM_PROMPT = """You are a business rule extraction agent for a financial services
 code modernization pipeline. You extract business rules from legacy source code and produce
@@ -49,12 +60,15 @@ def run_extraction(run_id: str, source_code: str, language: str = "COBOL") -> di
     prompt = EXTRACTION_USER_PROMPT.format(language=language, source_code=source_code)
 
     try:
+        client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=4000,
             system=EXTRACTION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}]
         )
+    except anthropic.AuthenticationError as e:
+        return {"error": f"API key authentication failed: {e}. Check that ANTHROPIC_API_KEY is set to a valid key."}
     except Exception as e:
         return {"error": f"Claude API call failed: {e}"}
 

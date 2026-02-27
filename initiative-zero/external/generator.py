@@ -2,11 +2,22 @@
 # It MUST NOT import from internal/. It receives ONLY plain-text
 # requirements via the database. No source code, no schemas, no IP.
 
+import os
 import json
 import anthropic
 from database import get_db, new_id, strip_json_fences
 
-client = anthropic.Anthropic()
+
+def _get_client():
+    """Create Anthropic client on demand so it always reads the current API key."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY environment variable is not set. "
+            "Please add your API key to Secrets (lock icon in Replit) or "
+            "export ANTHROPIC_API_KEY in your environment."
+        )
+    return anthropic.Anthropic(api_key=api_key)
 
 GENERATION_SYSTEM_PROMPT = """You are a code generation agent. You generate production-ready
 Python applications from plain-text business requirements.
@@ -57,12 +68,16 @@ def run_generation(run_id: str, requirements_doc_id: str, target_language: str =
     full_prompt = GENERATION_USER_PROMPT.format(requirements_text=requirements_text)
 
     try:
+        client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=4000,
             system=GENERATION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": full_prompt}]
         )
+    except anthropic.AuthenticationError as e:
+        db.close()
+        return {"error": f"API key authentication failed: {e}. Check that ANTHROPIC_API_KEY is set to a valid key."}
     except Exception as e:
         db.close()
         return {"error": f"Claude API call failed: {e}"}
