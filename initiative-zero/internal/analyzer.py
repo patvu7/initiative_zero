@@ -29,30 +29,76 @@ with exactly this structure. No markdown fences, no explanation — just the JSO
     "stack": "e.g. COBOL → DB2 → JCL",
     "dependencies_upstream": <integer>,
     "dependencies_downstream": <integer>,
-    "criticality": "Tier 1" or "Tier 2" or "Tier 3"
+    "criticality": "Tier 1" or "Tier 2" or "Tier 3",
+    "criticality_rationale": "why this tier was assigned",
+    "domain": "e.g. Claims Processing, Portfolio Management",
+    "data_sensitivity": "High" or "Medium" or "Low",
+    "data_sensitivity_rationale": "why — mention PII, financial data, etc."
   }},
   "code_analysis": {{
     "cyclomatic_complexity": <integer>,
+    "cyclomatic_detail": "brief explanation of most complex control paths",
     "dead_code_pct": <float, 0-100>,
+    "dead_code_detail": "what appears to be dead and why",
     "security_issues": <integer>,
+    "security_detail": ["list each security concern with severity"],
     "workarounds_identified": <integer>,
-    "workaround_details": ["list of identified workarounds"]
+    "workaround_details": ["list of identified workarounds with context"],
+    "code_quality_notes": ["list of code quality observations — naming, structure, comments"]
   }},
   "test_analysis": {{
     "estimated_coverage_pct": <float, 0-100>,
+    "coverage_rationale": "how this was estimated",
     "has_unit_tests": "Exists (sparse)" or "Comprehensive" or "None",
     "has_integration_tests": "Yes" or "None",
-    "untested_edge_cases": ["list of identified gaps"]
+    "untested_edge_cases": ["list of specific edge cases not covered"],
+    "testing_risks": ["list of testing risks for migration — e.g. no regression baseline"]
   }},
   "migration_economics": {{
     "estimated_annual_maintenance": "$X.XM/yr",
+    "maintenance_breakdown": "what drives this cost — staffing, vendor, infra",
     "estimated_ai_migration_cost": "$XXXK",
     "estimated_manual_migration_cost": "$X.XM / XX mo",
-    "roi_breakeven_months": <integer>
+    "roi_breakeven_months": <integer>,
+    "hidden_costs": ["list of costs often missed — retraining, parallel running, etc."]
   }},
-  "confidence_score": <float between 0.0 and 1.0>,
+  "migration_risks": [
+    {{
+      "risk": "description of the risk",
+      "severity": "High" or "Medium" or "Low",
+      "mitigation": "suggested mitigation"
+    }}
+  ],
+  "confidence_rubric": {{
+    "code_clarity": {{
+      "score": <float 0.0-1.0>,
+      "weight": 0.20,
+      "rationale": "how readable and well-structured the code is"
+    }},
+    "business_rule_extractability": {{
+      "score": <float 0.0-1.0>,
+      "weight": 0.25,
+      "rationale": "how clearly business rules can be identified and isolated"
+    }},
+    "test_coverage_confidence": {{
+      "score": <float 0.0-1.0>,
+      "weight": 0.20,
+      "rationale": "confidence in verifying migration correctness"
+    }},
+    "dependency_isolation": {{
+      "score": <float 0.0-1.0>,
+      "weight": 0.15,
+      "rationale": "how isolated this module is from upstream/downstream systems"
+    }},
+    "migration_complexity": {{
+      "score": <float 0.0-1.0>,
+      "weight": 0.20,
+      "rationale": "inverse complexity — higher means simpler migration"
+    }}
+  }},
+  "confidence_score": <float between 0.0 and 1.0 — MUST equal weighted sum of rubric scores>,
   "recommendation": "Proceed" or "Caution" or "Block",
-  "recommendation_rationale": "one sentence explaining why"
+  "recommendation_rationale": "2-3 sentences explaining the recommendation, referencing specific rubric scores"
 }}
 
 SOURCE CODE:
@@ -70,7 +116,7 @@ def run_analysis(run_id: str, source_code: str, language: str = "COBOL") -> dict
         client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            max_tokens=4000,
             system=ANALYSIS_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -103,3 +149,174 @@ def run_analysis(run_id: str, source_code: str, language: str = "COBOL") -> dict
     db.close()
 
     return {"analysis_id": analysis_id, "metrics": metrics, "confidence_score": confidence, "recommendation": recommendation}
+
+
+def generate_report_markdown(run_id: str) -> str:
+    """Generate a downloadable Markdown analysis report from stored analysis data."""
+    db = get_db()
+    run_row = db.execute("SELECT * FROM pipeline_runs WHERE id = ?", (run_id,)).fetchone()
+    analysis_row = db.execute("SELECT * FROM analyses WHERE run_id = ?", (run_id,)).fetchone()
+    db.close()
+
+    if not analysis_row or not analysis_row["metrics"]:
+        return None
+
+    m = json.loads(analysis_row["metrics"])
+    app = m.get("app_analysis", {})
+    code = m.get("code_analysis", {})
+    test = m.get("test_analysis", {})
+    econ = m.get("migration_economics", {})
+    risks = m.get("migration_risks", [])
+    rubric = m.get("confidence_rubric", {})
+    conf = analysis_row["confidence_score"]
+    rec = analysis_row["recommendation"]
+    rationale = m.get("recommendation_rationale", "")
+
+    report = f"""# Initiative Zero — Analysis Report
+
+**Source File:** {run_row["source_file"]}
+**Language:** {run_row["source_language"]}
+**Run ID:** {run_id}
+**Generated:** {analysis_row["created_at"]}
+**Recommendation:** {rec}
+**Confidence Score:** {conf:.0%}
+
+---
+
+## Executive Summary
+
+{rationale}
+
+---
+
+## 1. Application Analysis
+
+| Attribute | Value |
+|-----------|-------|
+| Purpose | {app.get("purpose", "—")} |
+| Stack | {app.get("stack", "—")} |
+| Upstream Dependencies | {app.get("dependencies_upstream", "—")} |
+| Downstream Dependencies | {app.get("dependencies_downstream", "—")} |
+| Criticality | {app.get("criticality", "—")} |
+| Criticality Rationale | {app.get("criticality_rationale", "—")} |
+| Domain | {app.get("domain", "—")} |
+| Data Sensitivity | {app.get("data_sensitivity", "—")} |
+| Data Sensitivity Rationale | {app.get("data_sensitivity_rationale", "—")} |
+
+---
+
+## 2. Code Analysis
+
+| Metric | Value |
+|--------|-------|
+| Cyclomatic Complexity | {code.get("cyclomatic_complexity", "—")} |
+| Dead Code | {code.get("dead_code_pct", 0):.0f}% |
+| Security Issues | {code.get("security_issues", 0)} |
+| Workarounds | {code.get("workarounds_identified", 0)} |
+
+**Complexity Detail:** {code.get("cyclomatic_detail", "—")}
+
+**Dead Code Detail:** {code.get("dead_code_detail", "—")}
+
+**Security Concerns:**
+"""
+    for item in code.get("security_detail", []):
+        report += f"- {item}\n"
+
+    report += f"""
+**Workaround Details:**
+"""
+    for item in code.get("workaround_details", []):
+        report += f"- {item}\n"
+
+    report += f"""
+**Code Quality Notes:**
+"""
+    for item in code.get("code_quality_notes", []):
+        report += f"- {item}\n"
+
+    report += f"""
+---
+
+## 3. Test Analysis
+
+| Metric | Value |
+|--------|-------|
+| Estimated Coverage | {test.get("estimated_coverage_pct", 0):.0f}% |
+| Coverage Rationale | {test.get("coverage_rationale", "—")} |
+| Unit Tests | {test.get("has_unit_tests", "—")} |
+| Integration Tests | {test.get("has_integration_tests", "—")} |
+
+**Untested Edge Cases:**
+"""
+    for item in test.get("untested_edge_cases", []):
+        report += f"- {item}\n"
+
+    report += """
+**Testing Risks:**
+"""
+    for item in test.get("testing_risks", []):
+        report += f"- {item}\n"
+
+    report += f"""
+---
+
+## 4. Migration Economics
+
+| Metric | Value |
+|--------|-------|
+| Annual Maintenance | {econ.get("estimated_annual_maintenance", "—")} |
+| AI Migration Cost | {econ.get("estimated_ai_migration_cost", "—")} |
+| Manual Migration Cost | {econ.get("estimated_manual_migration_cost", "—")} |
+| ROI Breakeven | {econ.get("roi_breakeven_months", "—")} months |
+
+**Maintenance Breakdown:** {econ.get("maintenance_breakdown", "—")}
+
+**Hidden Costs:**
+"""
+    for item in econ.get("hidden_costs", []):
+        report += f"- {item}\n"
+
+    report += """
+---
+
+## 5. Migration Risks
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+"""
+    for r in risks:
+        report += f"| {r.get('risk', '—')} | {r.get('severity', '—')} | {r.get('mitigation', '—')} |\n"
+
+    report += """
+---
+
+## 6. Confidence Scoring Rubric
+
+| Dimension | Score | Weight | Weighted | Rationale |
+|-----------|-------|--------|----------|-----------|
+"""
+    total_weighted = 0.0
+    for key, label in [
+        ("code_clarity", "Code Clarity"),
+        ("business_rule_extractability", "Rule Extractability"),
+        ("test_coverage_confidence", "Test Coverage Confidence"),
+        ("dependency_isolation", "Dependency Isolation"),
+        ("migration_complexity", "Migration Complexity"),
+    ]:
+        dim = rubric.get(key, {})
+        s = dim.get("score", 0)
+        w = dim.get("weight", 0)
+        weighted = s * w
+        total_weighted += weighted
+        rat = dim.get("rationale", "—")
+        report += f"| {label} | {s:.0%} | {w:.0%} | {weighted:.2f} | {rat} |\n"
+
+    report += f"| **Total** | | | **{total_weighted:.2f} ({total_weighted:.0%})** | |\n"
+
+    report += f"""
+---
+
+*Report generated by Initiative Zero Analysis Engine. Run ID: {run_id}*
+"""
+    return report
