@@ -1,7 +1,7 @@
 import json
 import hashlib
 import anthropic
-from database import get_db, new_id, now_iso
+from database import get_db, new_id, now_iso, strip_json_fences
 
 client = anthropic.Anthropic()
 
@@ -48,21 +48,23 @@ def run_extraction(run_id: str, source_code: str, language: str = "COBOL") -> di
 
     prompt = EXTRACTION_USER_PROMPT.format(language=language, source_code=source_code)
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4000,
-        system=EXTRACTION_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}]
-    )
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            system=EXTRACTION_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}]
+        )
+    except Exception as e:
+        return {"error": f"Claude API call failed: {e}"}
 
     raw_text = response.content[0].text
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.split("\n", 1)[1]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
 
-    result = json.loads(cleaned)
+    try:
+        cleaned = strip_json_fences(raw_text)
+        result = json.loads(cleaned)
+    except (json.JSONDecodeError, ValueError) as e:
+        return {"error": f"Failed to parse extraction response: {e}", "raw_response": raw_text}
     rules = result.get("rules", [])
     req_doc_text = result.get("requirements_document", "")
 

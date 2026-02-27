@@ -96,6 +96,17 @@ def init_db():
     conn.commit()
     conn.close()
 
+def strip_json_fences(text: str) -> str:
+    """Strip markdown code fences from Claude API responses."""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        # Remove opening fence line (```json or ```)
+        cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        # Remove closing fence
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+    return cleaned.strip()
+
 def new_id():
     return str(uuid.uuid4())[:8]
 

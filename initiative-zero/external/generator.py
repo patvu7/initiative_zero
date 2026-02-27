@@ -4,7 +4,7 @@
 
 import json
 import anthropic
-from database import get_db, new_id
+from database import get_db, new_id, strip_json_fences
 
 client = anthropic.Anthropic()
 
@@ -44,29 +44,30 @@ def run_generation(run_id: str, requirements_doc_id: str, target_language: str =
     ).fetchone()
 
     if not row:
-        raise ValueError(f"Requirements doc {requirements_doc_id} not found for run {run_id}")
+        db.close()
+        return {"error": f"Requirements doc {requirements_doc_id} not found for run {run_id}"}
 
     if not row["approved_by"]:
-        raise ValueError("Requirements document has not been approved. Cannot generate.")
+        db.close()
+        return {"error": "Requirements document has not been approved. Cannot generate."}
 
     requirements_text = row["content"]
 
     # Build the prompt — store it for auditability
     full_prompt = GENERATION_USER_PROMPT.format(requirements_text=requirements_text)
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4000,
-        system=GENERATION_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": full_prompt}]
-    )
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            system=GENERATION_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": full_prompt}]
+        )
+    except Exception as e:
+        db.close()
+        return {"error": f"Claude API call failed: {e}"}
 
-    generated_code = response.content[0].text.strip()
-    # Strip markdown fences if present
-    if generated_code.startswith("```"):
-        generated_code = generated_code.split("\n", 1)[1]
-        if generated_code.endswith("```"):
-            generated_code = generated_code[:-3]
+    generated_code = strip_json_fences(response.content[0].text)
 
     # Store in DB — including the exact prompt for audit trail
     gen_id = new_id()
