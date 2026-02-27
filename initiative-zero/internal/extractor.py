@@ -54,6 +54,128 @@ SOURCE CODE:
 ```"""
 
 
+def build_enrichment_section(metrics: dict) -> str:
+    """Build a technology-agnostic plain-text appendix from analysis metrics.
+
+    Returns structured text to append to the requirements document.
+    Omits any section that has no data.
+    """
+    sections = []
+
+    # --- Header ---
+    sections.append(
+        "---\n"
+        "SUPPLEMENTAL CONTEXT FROM SYSTEM ANALYSIS\n"
+        "(This section provides additional context for code generation. "
+        "All information is technology-agnostic.)\n"
+        "---"
+    )
+
+    # --- SYSTEM PROFILE ---
+    app = metrics.get("app_analysis")
+    if app and isinstance(app, dict):
+        lines = ["SYSTEM PROFILE"]
+        if app.get("purpose"):
+            lines.append(f"- Purpose: {app['purpose']}")
+        if app.get("domain"):
+            lines.append(f"- Domain: {app['domain']}")
+        if app.get("criticality"):
+            crit = app["criticality"]
+            rationale = app.get("criticality_rationale", "")
+            lines.append(f"- Criticality: {crit} — {rationale}" if rationale else f"- Criticality: {crit}")
+        if app.get("data_sensitivity"):
+            ds = app["data_sensitivity"]
+            ds_rationale = app.get("data_sensitivity_rationale", "")
+            lines.append(f"- Data Sensitivity: {ds} — {ds_rationale}" if ds_rationale else f"- Data Sensitivity: {ds}")
+        if len(lines) > 1:
+            sections.append("\n".join(lines))
+
+    # --- DATA HANDLING REQUIREMENTS ---
+    if app and isinstance(app, dict):
+        ds = app.get("data_sensitivity", "")
+        domain = app.get("domain", "")
+        dh_lines = ["DATA HANDLING REQUIREMENTS"]
+        if ds:
+            dh_lines.append(f"- This system processes {ds}-sensitivity data")
+        if ds and ds.lower() == "high":
+            dh_lines.append(
+                "- All data handling must include audit trails, "
+                "access logging, and encryption-at-rest considerations"
+            )
+        domain_lower = domain.lower() if domain else ""
+        if any(kw in domain_lower for kw in ("finance", "portfolio", "wealth")):
+            dh_lines.append(
+                "- Financial calculations require Decimal precision "
+                "with explicit rounding modes"
+            )
+        if len(dh_lines) > 1:
+            sections.append("\n".join(dh_lines))
+
+    # --- KNOWN TESTING GAPS ---
+    test = metrics.get("test_analysis")
+    if test and isinstance(test, dict):
+        edge_cases = test.get("untested_edge_cases", [])
+        if edge_cases:
+            lines = [
+                "KNOWN TESTING GAPS",
+                "The following edge cases were identified as untested in the legacy system.",
+                "The generated implementation SHOULD include defensive handling for these:",
+            ]
+            for item in edge_cases:
+                lines.append(f"- {item}")
+            sections.append("\n".join(lines))
+
+    # --- TESTING RISKS ---
+    if test and isinstance(test, dict):
+        risks = test.get("testing_risks", [])
+        if risks:
+            lines = ["TESTING RISKS"]
+            for item in risks:
+                lines.append(f"- {item}")
+            sections.append("\n".join(lines))
+
+    # --- MIGRATION RISKS ---
+    mig_risks = metrics.get("migration_risks")
+    if mig_risks and isinstance(mig_risks, list):
+        non_empty = [r for r in mig_risks if isinstance(r, dict) and r.get("risk")]
+        if non_empty:
+            lines = ["MIGRATION RISKS"]
+            for risk in non_empty:
+                severity = risk.get("severity", "Unknown")
+                desc = risk.get("risk", "")
+                mitigation = risk.get("mitigation", "")
+                lines.append(f"- [{severity}] {desc}")
+                if mitigation:
+                    lines.append(f"  Mitigation: {mitigation}")
+            sections.append("\n".join(lines))
+
+    # --- SECURITY REQUIREMENTS ---
+    code = metrics.get("code_analysis")
+    if code and isinstance(code, dict):
+        sec_items = code.get("security_detail", [])
+        if sec_items:
+            lines = ["SECURITY REQUIREMENTS"]
+            for item in sec_items:
+                lines.append(f"- {item}")
+            sections.append("\n".join(lines))
+
+    # --- CODE QUALITY GUIDANCE ---
+    if code and isinstance(code, dict):
+        quality_notes = code.get("code_quality_notes", [])
+        good_notes = [n for n in quality_notes if "Good" in n]
+        if good_notes:
+            lines = ["CODE QUALITY GUIDANCE"]
+            for item in good_notes:
+                lines.append(f"- Preserve: {item}")
+            sections.append("\n".join(lines))
+
+    # Only return enrichment if we have content beyond the header
+    if len(sections) <= 1:
+        return ""
+
+    return "\n\n".join(sections)
+
+
 def run_extraction(run_id: str, source_code: str, language: str = "COBOL") -> dict:
     """Extract business rules from source code. Store rules and requirements doc in DB."""
 
@@ -82,7 +204,20 @@ def run_extraction(run_id: str, source_code: str, language: str = "COBOL") -> di
     rules = result.get("rules", [])
     req_doc_text = result.get("requirements_document", "")
 
+    # Enrich requirements document with Zone 2 analysis data (if available)
     db = get_db()
+    analysis_row = db.execute(
+        "SELECT metrics FROM analyses WHERE run_id = ?", (run_id,)
+    ).fetchone()
+
+    if analysis_row and analysis_row["metrics"]:
+        try:
+            metrics = json.loads(analysis_row["metrics"])
+            enrichment = build_enrichment_section(metrics)
+            if enrichment:
+                req_doc_text = req_doc_text + "\n\n" + enrichment
+        except (json.JSONDecodeError, ValueError):
+            pass  # Skip enrichment silently on parse error
 
     # Store each rule
     for rule in rules:
