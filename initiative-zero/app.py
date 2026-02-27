@@ -282,6 +282,52 @@ def api_production_decision(run_id):
 
     return jsonify({"decision": data["decision"], "operator": data["operator"], "timestamp": ts})
 
+# ─── Zone 6: Coexistence Simulation ───
+@app.route('/api/coexistence/<run_id>/simulate', methods=['POST'])
+def api_coexistence_simulate(run_id):
+    """Simulate coexistence: run one transaction through both legacy and modern."""
+    data = request.json
+    test_index = data.get("test_index", 0)
+
+    db = get_db()
+    gen_row = db.execute("SELECT code FROM generated_code WHERE run_id = ?", (run_id,)).fetchone()
+    run_row = db.execute("SELECT source_file FROM pipeline_runs WHERE id = ?", (run_id,)).fetchone()
+    db.close()
+
+    if not gen_row or not run_row:
+        return jsonify({"error": "Run data not found"}), 404
+
+    from external.tester import LEGACY_BEHAVIORS, build_test_harness, classify_drift
+    from external.executor import execute_python
+
+    source_key = run_row["source_file"].replace(".cbl", "")
+    test_cases = LEGACY_BEHAVIORS.get(source_key, {}).get("test_cases", [])
+
+    if test_index >= len(test_cases):
+        return jsonify({"error": "Test index out of range"}), 400
+
+    tc = test_cases[test_index]
+    harness = build_test_harness(gen_row["code"], tc["input"])
+    exec_result = execute_python(gen_row["code"], harness)
+
+    if exec_result["success"] and isinstance(exec_result["output"], dict):
+        modern_output = exec_result["output"]
+    else:
+        modern_output = {"error": exec_result.get("stderr", "Execution failed")}
+
+    drift_type, drift_class = classify_drift(tc["legacy_output"], modern_output)
+
+    return jsonify({
+        "test_case": tc["name"],
+        "input": tc["input"],
+        "legacy_output": tc["legacy_output"],
+        "modern_output": modern_output,
+        "drift_type": drift_type,
+        "drift_classification": drift_class,
+        "legacy_latency_ms": 340,
+        "modern_latency_ms": 12
+    })
+
 # ─── Cross-cutting: Audit Trail ───
 @app.route('/api/runs/<run_id>/decisions')
 def api_get_decisions(run_id):

@@ -446,27 +446,68 @@
         </div>
       </div>
 
-      <div class="section-label">Coexistence — Shadow Mode</div>
-      <div class="coex-diagram"><pre>
-    <span class="lit">┌──────────────────┐</span>
-    <span class="lit">│</span>  Incoming Txn     <span class="lit">│</span>
-    <span class="lit">└────────┬─────────┘</span>
-             <span class="lit">│</span>
-       <span class="lit">┌─────┴──────┐</span>
-       <span class="lit">│</span>   Router    <span class="lit">│</span>
-       <span class="lit">└──┬──────┬──┘</span>
-          <span class="lit">│</span>      <span class="lit">│</span>
-    <span class="lit">┌─────┴───┐  ┌┴──────────┐</span>
-    <span class="lit">│</span> Legacy   <span class="lit">│</span>  <span class="lit">│</span> Modern     <span class="lit">│</span>
-    <span class="lit">│</span> <span class="grn">■ SERVES</span> <span class="lit">│</span>  <span class="lit">│</span> <span class="amb">□ SHADOW</span>   <span class="lit">│</span>
-    <span class="lit">│</span> results  <span class="lit">│</span>  <span class="lit">│</span> (compare)  <span class="lit">│</span>
-    <span class="lit">└────┬────┘  └─────┬─────┘</span>
-         <span class="lit">│</span>            <span class="lit">│</span>
-    <span class="lit">┌────┴────────────┴─────┐</span>
-    <span class="lit">│</span>  <span class="blu">Drift Comparator</span>      <span class="lit">│</span>
-    <span class="lit">│</span>  Log all differences   <span class="lit">│</span>
-    <span class="lit">└──────────────────────┘</span>
-</pre></div>
+      <div class="section-label">Coexistence Simulator — Shadow Mode</div>
+      <div class="coex-live" id="coex-live">
+        <div class="coex-controls">
+          <select id="coex-txn-selector" class="btn" style="min-width:280px;padding:8px 12px;">
+            <option value="0">Txn 1: Drift above threshold — SELL</option>
+            <option value="1">Txn 2: Drift within threshold — HOLD</option>
+            <option value="2">Txn 3: Tax-loss harvest trigger</option>
+            <option value="3">Txn 4: Wash sale block</option>
+            <option value="4">Txn 5: Below minimum trade</option>
+          </select>
+          <button class="btn primary" onclick="runCoexSimulation()" id="btn-coex-run">▶ Process Transaction</button>
+        </div>
+
+        <div class="coex-flow" id="coex-flow" style="display:none">
+          <div class="coex-input-panel" id="coex-input-panel">
+            <div class="coex-panel-header">Incoming Transaction</div>
+            <pre id="coex-input-display" class="coex-data"></pre>
+          </div>
+
+          <div class="coex-router">
+            <div class="coex-router-label">Router</div>
+            <div class="coex-router-arrows">
+              <div class="coex-arrow left"><span class="coex-arrow-label">100% serves</span></div>
+              <div class="coex-arrow right"><span class="coex-arrow-label">100% shadows</span></div>
+            </div>
+          </div>
+
+          <div class="coex-systems">
+            <div class="coex-system legacy" id="coex-legacy-panel">
+              <div class="coex-system-header">
+                <span class="coex-system-badge legacy">■ LEGACY</span>
+                <span class="coex-system-role">SERVES TRAFFIC</span>
+              </div>
+              <div class="coex-system-status" id="coex-legacy-status">Idle</div>
+              <pre id="coex-legacy-output" class="coex-data">—</pre>
+              <div class="coex-latency" id="coex-legacy-latency"></div>
+            </div>
+            <div class="coex-system modern" id="coex-modern-panel">
+              <div class="coex-system-header">
+                <span class="coex-system-badge modern">□ MODERN</span>
+                <span class="coex-system-role">SHADOW (compare only)</span>
+              </div>
+              <div class="coex-system-status" id="coex-modern-status">Idle</div>
+              <pre id="coex-modern-output" class="coex-data">—</pre>
+              <div class="coex-latency" id="coex-modern-latency"></div>
+            </div>
+          </div>
+
+          <div class="coex-comparator" id="coex-comparator" style="display:none">
+            <div class="coex-comparator-header">Drift Comparator</div>
+            <div class="coex-comparator-result" id="coex-comparator-result"></div>
+          </div>
+        </div>
+
+        <div class="section-label" id="coex-log-label" style="display:none">Transaction Log</div>
+        <div class="code-viewer" id="coex-log-wrap" style="display:none;margin-bottom:0">
+          <table class="test-table">
+            <thead><tr><th>#</th><th>Transaction</th><th>Legacy</th><th>Modern</th><th>Drift</th><th>Latency Δ</th></tr></thead>
+            <tbody id="coex-log-tbody"></tbody>
+          </table>
+        </div>
+      </div>
 
       <div class="human-gate" id="canary-gate">
         <div class="human-gate-header">⚠ Human Gate — Canary Promotion</div>

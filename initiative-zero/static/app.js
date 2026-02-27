@@ -14,6 +14,8 @@ let state = {
   testResults: null
 };
 
+let coexTxnCount = 0;
+
 // ═══ API HELPER ═══
 async function api(path, method = 'GET', body = null) {
   const opts = { method, headers: {'Content-Type': 'application/json'} };
@@ -672,6 +674,11 @@ async function canaryDecision(action) {
     stages[2].querySelector('.slice-stage-status').textContent = '✓ Passed';
     stages[3].classList.add('active');
     stages[3].querySelector('.slice-stage-status').textContent = '● 3% live';
+    // Update router labels to reflect canary
+    const leftLabel = document.querySelector('.coex-arrow.left .coex-arrow-label');
+    const rightLabel = document.querySelector('.coex-arrow.right .coex-arrow-label');
+    if (leftLabel) leftLabel.textContent = '97% serves';
+    if (rightLabel) rightLabel.textContent = '3% live traffic';
     updateStatus(6, 'running', '3%');
     toast('Canary approved — 3% routing to modern');
   } else {
@@ -680,6 +687,94 @@ async function canaryDecision(action) {
       '<div class="dr-body">Additional observation period. New sign-off required after expiry.</div>' +
       '<div class="dr-ts">Tech Lead · ' + ts + '</div>';
     toast('Shadow extended — new review in 14 days');
+  }
+}
+
+// ═══ COEXISTENCE SIMULATOR ═══
+async function runCoexSimulation() {
+  const selector = document.getElementById('coex-txn-selector');
+  const testIndex = parseInt(selector.value);
+  const btn = document.getElementById('btn-coex-run');
+
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+
+  document.getElementById('coex-flow').style.display = 'block';
+  document.getElementById('coex-input-panel').classList.add('active');
+  document.getElementById('coex-legacy-status').textContent = 'Processing…';
+  document.getElementById('coex-legacy-status').style.color = 'var(--amber-tx)';
+  document.getElementById('coex-modern-status').textContent = 'Processing…';
+  document.getElementById('coex-modern-status').style.color = 'var(--amber-tx)';
+  document.getElementById('coex-legacy-output').textContent = '…';
+  document.getElementById('coex-modern-output').textContent = '…';
+  document.getElementById('coex-legacy-panel').classList.remove('done');
+  document.getElementById('coex-modern-panel').classList.remove('done');
+  document.getElementById('coex-comparator').style.display = 'none';
+  document.getElementById('coex-legacy-latency').textContent = '';
+  document.getElementById('coex-modern-latency').textContent = '';
+
+  try {
+    const result = await api('/api/coexistence/' + state.runId + '/simulate', 'POST', {
+      test_index: testIndex
+    });
+
+    document.getElementById('coex-input-display').textContent = JSON.stringify(result.input, null, 2);
+
+    setTimeout(() => {
+      document.getElementById('coex-modern-status').textContent = 'Complete';
+      document.getElementById('coex-modern-status').style.color = 'var(--green-tx)';
+      document.getElementById('coex-modern-output').textContent = JSON.stringify(result.modern_output, null, 2);
+      document.getElementById('coex-modern-latency').textContent = result.modern_latency_ms + 'ms (real-time)';
+      document.getElementById('coex-modern-panel').classList.add('done');
+    }, 250);
+
+    setTimeout(() => {
+      document.getElementById('coex-legacy-status').textContent = 'Complete';
+      document.getElementById('coex-legacy-status').style.color = 'var(--green-tx)';
+      document.getElementById('coex-legacy-output').textContent = JSON.stringify(result.legacy_output, null, 2);
+      document.getElementById('coex-legacy-latency').textContent = result.legacy_latency_ms + 'ms (batch)';
+      document.getElementById('coex-legacy-panel').classList.add('done');
+    }, 400);
+
+    setTimeout(() => {
+      const comp = document.getElementById('coex-comparator');
+      comp.style.display = 'block';
+      const driftChips = {
+        0: {cls: 'ok', label: 'MATCH — Type 0 Identical'},
+        1: {cls: 'info', label: 'MATCH — Type 1 Acceptable'},
+        2: {cls: 'warn', label: 'DRIFT — Type 2 Semantic'},
+        3: {cls: 'err', label: 'DIVERGENCE — Type 3 Breaking'}
+      };
+      const chip = driftChips[result.drift_type] || driftChips[1];
+      document.getElementById('coex-comparator-result').innerHTML =
+        '<span class="status-chip ' + chip.cls + '">' + chip.label + '</span>' +
+        '<span class="coex-comparator-detail">' + escHtml(result.drift_classification) + '</span>';
+
+      coexTxnCount++;
+      document.getElementById('coex-log-label').style.display = '';
+      document.getElementById('coex-log-wrap').style.display = '';
+      const tbody = document.getElementById('coex-log-tbody');
+      const tr = document.createElement('tr');
+      if (result.drift_type >= 2) tr.classList.add('highlight');
+      tr.innerHTML =
+        '<td>' + coexTxnCount + '</td>' +
+        '<td>' + escHtml(result.test_case) + '</td>' +
+        '<td>' + escHtml(formatOutput(result.legacy_output)) + '</td>' +
+        '<td>' + escHtml(formatOutput(result.modern_output)) + '</td>' +
+        '<td><span class="status-chip ' + chip.cls + '">' + chip.label.split('—')[0].trim() + '</span></td>' +
+        '<td style="font-family:var(--mono);font-size:10px;color:var(--green-tx)">-' +
+          (result.legacy_latency_ms - result.modern_latency_ms) + 'ms</td>';
+      tbody.insertBefore(tr, tbody.firstChild);
+
+      btn.disabled = false;
+      btn.textContent = '▶ Process Transaction';
+      toast('Transaction processed — ' + chip.label.split('—')[0].trim());
+    }, 700);
+
+  } catch (e) {
+    toast('Simulation error: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '▶ Process Transaction';
   }
 }
 
