@@ -846,3 +846,30 @@ body { font-family: var(--sans); background: var(--bg); color: var(--tx); line-h
   .sidebar { display: none; }
   :root { --sidebar-w: 0; }
 }
+
+/* ─── FILENAME OVERFLOW FIX ─── */
+.code-filename {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.file-meta-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+#file-selector {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.code-filename[title]:hover {
+  cursor: default;
+}
