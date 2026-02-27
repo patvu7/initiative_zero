@@ -1,0 +1,90 @@
+import json
+import anthropic
+from database import get_db, new_id, now_iso
+
+client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY env var
+
+ANALYSIS_SYSTEM_PROMPT = """You are a legacy code analysis agent for a financial services
+code modernization pipeline. You analyze source code and return structured assessments.
+Always return valid JSON. Be conservative with confidence scores. Estimate where exact
+data isn't available but flag estimates clearly."""
+
+ANALYSIS_USER_PROMPT = """Analyze this {language} source code and return a JSON object
+with exactly this structure. No markdown fences, no explanation — just the JSON object.
+
+{{
+  "app_analysis": {{
+    "purpose": "one-line description of what this system does",
+    "stack": "e.g. COBOL → DB2 → JCL",
+    "dependencies_upstream": <integer>,
+    "dependencies_downstream": <integer>,
+    "criticality": "Tier 1" or "Tier 2" or "Tier 3"
+  }},
+  "code_analysis": {{
+    "cyclomatic_complexity": <integer>,
+    "dead_code_pct": <float, 0-100>,
+    "security_issues": <integer>,
+    "workarounds_identified": <integer>,
+    "workaround_details": ["list of identified workarounds"]
+  }},
+  "test_analysis": {{
+    "estimated_coverage_pct": <float, 0-100>,
+    "has_unit_tests": "Exists (sparse)" or "Comprehensive" or "None",
+    "has_integration_tests": "Yes" or "None",
+    "untested_edge_cases": ["list of identified gaps"]
+  }},
+  "migration_economics": {{
+    "estimated_annual_maintenance": "$X.XM/yr",
+    "estimated_ai_migration_cost": "$XXXK",
+    "estimated_manual_migration_cost": "$X.XM / XX mo",
+    "roi_breakeven_months": <integer>
+  }},
+  "confidence_score": <float between 0.0 and 1.0>,
+  "recommendation": "Proceed" or "Caution" or "Block",
+  "recommendation_rationale": "one sentence explaining why"
+}}
+
+SOURCE CODE:
+```{language}
+{source_code}
+```"""
+
+
+def run_analysis(run_id: str, source_code: str, language: str = "COBOL") -> dict:
+    """Send source code to Claude for analysis. Store results in DB. Return analysis dict."""
+
+    prompt = ANALYSIS_USER_PROMPT.format(language=language, source_code=source_code)
+
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2000,
+        system=ANALYSIS_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    raw_text = response.content[0].text
+
+    # Parse JSON — strip markdown fences if present
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[1]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+
+    metrics = json.loads(cleaned)
+    confidence = metrics.get("confidence_score", 0.0)
+    recommendation = metrics.get("recommendation", "Caution")
+
+    # Store in DB
+    db = get_db()
+    analysis_id = new_id()
+    db.execute(
+        """INSERT INTO analyses (id, run_id, raw_response, metrics, confidence_score, recommendation)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (analysis_id, run_id, raw_text, json.dumps(metrics), confidence, recommendation)
+    )
+    db.execute("UPDATE pipeline_runs SET status = 'analyzed' WHERE id = ?", (run_id,))
+    db.commit()
+    db.close()
+
+    return {"analysis_id": analysis_id, "metrics": metrics, "confidence_score": confidence, "recommendation": recommendation}
