@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import json
 import os
+import shutil
 
 TIMEOUT_SECONDS = 10
 
@@ -39,7 +40,7 @@ def execute_python(code: str, test_harness: str) -> dict:
             text=True,
             timeout=TIMEOUT_SECONDS,
             cwd=tmpdir,
-            env={**os.environ, "PYTHONPATH": tmpdir}
+            env={**os.environ, "PYTHONPATH": tmpdir, "PYTHONDONTWRITEBYTECODE": "1"}
         )
 
         if result.returncode == 0:
@@ -56,9 +57,7 @@ def execute_python(code: str, test_harness: str) -> dict:
     except Exception as e:
         return {"success": False, "output": "", "stderr": str(e)}
     finally:
-        # Cleanup
-        for f in [module_path, harness_path]:
-            if os.path.exists(f):
-                os.remove(f)
+        # Cleanup — use shutil.rmtree to remove tmpdir and any subdirectories
+        # (e.g. __pycache__ created by Python import)
         if os.path.exists(tmpdir):
-            os.rmdir(tmpdir)
+            shutil.rmtree(tmpdir, ignore_errors=True)
