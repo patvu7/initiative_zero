@@ -970,3 +970,65 @@ body { font-family: var(--sans); background: var(--bg); color: var(--tx); line-h
 @media (max-width: 700px) {
   .rubric-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ─── SME REVIEW ITEMS ─── */
+.sme-review-item {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.sme-review-item.reviewed {
+  border-color: var(--green);
+  background: var(--green-dim);
+}
+.sme-review-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.sme-review-item-id {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--amber-tx);
+}
+.sme-review-item.reviewed .sme-review-item-id {
+  color: var(--green-tx);
+}
+.sme-review-item-type {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--amber-tx);
+  background: var(--amber-dim);
+}
+.sme-review-item-text {
+  font-size: 12px;
+  color: var(--tx);
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+.sme-review-item-source {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--tx4);
+  margin-bottom: 8px;
+}
+.sme-review-item-actions {
+  display: flex;
+  gap: 6px;
+}
+.sme-review-item-actions .btn {
+  font-size: 10px;
+  padding: 4px 10px;
+}
+.sme-review-item-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--green-tx);
+  margin-top: 6px;
+}

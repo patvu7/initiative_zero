@@ -328,26 +328,137 @@ async function runStrainer() {
   }
 }
 
+// ═══ ZONE 3: SME REVIEW FLOW ═══
+
+let smeReviewState = {
+  flaggedRules: [],
+  reviewedCount: 0
+};
+
+async function openSmeReview() {
+  document.getElementById('sme-pre-review').style.display = 'none';
+  document.getElementById('sme-review-panel').style.display = 'block';
+
+  // Fetch full requirements doc
+  try {
+    const reqDoc = await api('/api/extraction/' + state.runId + '/requirements');
+    document.getElementById('sme-req-doc-preview').textContent = reqDoc.content || 'No content available';
+  } catch (e) {
+    document.getElementById('sme-req-doc-preview').textContent = 'Error loading requirements: ' + e.message;
+  }
+
+  // Identify rules that need SME review (behavioral/OBS rules)
+  const allRules = state.rules || [];
+  const flagged = allRules.filter(r =>
+    r.rule_type === 'behavioral' || (r.id && r.id.startsWith('OBS'))
+  );
+
+  smeReviewState.flaggedRules = flagged;
+  smeReviewState.reviewedCount = 0;
+
+  const container = document.getElementById('sme-flagged-rules');
+  container.innerHTML = '';
+
+  if (flagged.length === 0) {
+    // No behavioral rules — can approve immediately
+    document.getElementById('sme-flagged-label').style.display = 'none';
+    document.getElementById('btn-approve-spec').disabled = false;
+    toast('No behavioral observations found — ready for approval');
+    return;
+  }
+
+  document.getElementById('sme-flagged-label').style.display = '';
+  document.getElementById('sme-flagged-label').textContent =
+    flagged.length + ' Item' + (flagged.length > 1 ? 's' : '') + ' Requiring SME Review';
+
+  flagged.forEach((r, i) => {
+    const div = document.createElement('div');
+    div.className = 'sme-review-item';
+    div.id = 'sme-item-' + i;
+    div.innerHTML =
+      '<div class="sme-review-item-header">' +
+        '<span class="sme-review-item-id">' + escHtml(r.id) + '</span>' +
+        '<span class="sme-review-item-type">Behavioral Observation</span>' +
+      '</div>' +
+      '<div class="sme-review-item-text">' + escHtml(r.rule_text) + '</div>' +
+      '<div class="sme-review-item-source">Source: ' + escHtml(r.source_reference || 'Inferred from code patterns') + '</div>' +
+      '<div class="sme-review-item-actions" id="sme-actions-' + i + '">' +
+        '<button class="btn green" onclick="reviewSmeItem(' + i + ', \'confirm\')">✓ Confirm Accurate</button>' +
+        '<button class="btn amber" onclick="reviewSmeItem(' + i + ', \'modify\')">Modify & Confirm</button>' +
+        '<button class="btn red" onclick="reviewSmeItem(' + i + ', \'reject\')">✗ Reject</button>' +
+      '</div>' +
+      '<div class="sme-review-item-status" id="sme-status-' + i + '"></div>';
+    container.appendChild(div);
+  });
+}
+
+function reviewSmeItem(index, action) {
+  const item = document.getElementById('sme-item-' + index);
+  const actions = document.getElementById('sme-actions-' + index);
+  const status = document.getElementById('sme-status-' + index);
+  const ts = new Date().toISOString().split('.')[0] + 'Z';
+
+  actions.style.display = 'none';
+  item.classList.add('reviewed');
+
+  if (action === 'confirm') {
+    status.textContent = '✓ Confirmed by S. Chen at ' + ts;
+    status.style.color = 'var(--green-tx)';
+  } else if (action === 'modify') {
+    status.textContent = '✎ Modified & confirmed by S. Chen at ' + ts;
+    status.style.color = 'var(--amber-tx)';
+  } else {
+    status.textContent = '✗ Rejected by S. Chen at ' + ts;
+    status.style.color = 'var(--red-tx)';
+    item.style.borderColor = 'var(--red)';
+    item.style.background = 'var(--red-dim)';
+  }
+
+  smeReviewState.reviewedCount++;
+
+  // Enable approve button once all flagged items are reviewed
+  if (smeReviewState.reviewedCount >= smeReviewState.flaggedRules.length) {
+    document.getElementById('btn-approve-spec').disabled = false;
+    toast('All observations reviewed — ready for approval');
+  } else {
+    const remaining = smeReviewState.flaggedRules.length - smeReviewState.reviewedCount;
+    toast(remaining + ' item' + (remaining > 1 ? 's' : '') + ' remaining for review');
+  }
+}
+
+function downloadPrd() {
+  if (!state.runId) {
+    toast('No extraction available');
+    return;
+  }
+  window.open('/api/extraction/' + state.runId + '/prd', '_blank');
+}
+
 async function smeSign(action) {
   const ts = new Date().toISOString().split('.')[0] + 'Z';
   const dr = document.getElementById('sme-decision');
   document.getElementById('sme-actions').style.display = 'none';
+  document.getElementById('sme-review-panel').style.display = 'none';
+  document.getElementById('sme-pre-review').style.display = 'none';
 
   if (action === 'approve') {
     try {
       const result = await api('/api/extraction/' + state.runId + '/approve', 'POST', {
         operator: 'S. Chen',
-        rationale: 'Requirements document validated'
+        rationale: 'Requirements document validated after SME review'
       });
       state.requirementsDocId = result.requirements_doc_id;
       dr.className = 'decision-record accepted show';
       dr.innerHTML = '<div class="dr-header">✓ SPEC APPROVED</div>' +
-        '<div class="dr-body">Requirements document validated. Cleared to cross security firewall.</div>' +
+        '<div class="dr-body">Requirements document validated after SME review. ' +
+        smeReviewState.flaggedRules.length + ' behavioral observation(s) reviewed. ' +
+        'Cleared to cross security firewall.</div>' +
         '<div class="dr-ts">' + escHtml(result.operator) + ' (Staff Eng) · ' + escHtml(result.timestamp) + '</div>';
       document.getElementById('btn-to-gen').disabled = false;
       toast('Spec approved — firewall crossing authorized');
     } catch (e) {
       document.getElementById('sme-actions').style.display = '';
+      document.getElementById('sme-review-panel').style.display = 'block';
       toast('Approval error: ' + e.message);
     }
   } else {
