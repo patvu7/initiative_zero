@@ -86,7 +86,9 @@ async function onFileSelected(filename) {
     const file = await api('/api/legacy/files/' + encodeURIComponent(filename));
     state.sourceFile = filename;
     document.getElementById('code-display').textContent = file.content;
-    document.getElementById('code-filename-display').textContent = 'src/' + filename;
+    const filenameEl = document.getElementById('code-filename-display');
+    filenameEl.textContent = 'src/' + filename;
+    filenameEl.title = 'src/' + filename;
     document.getElementById('meta-loc').textContent = file.loc.toLocaleString();
     document.getElementById('meta-filename').textContent = filename;
   } catch (e) {
