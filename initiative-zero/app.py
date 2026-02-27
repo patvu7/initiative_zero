@@ -158,7 +158,12 @@ def api_get_generated(run_id):
 def api_run_tests():
     data = request.json
     run_id = data["run_id"]
-    results = run_tests(run_id)
+    try:
+        results = run_tests(run_id)
+    except Exception as e:
+        return jsonify({"error": f"Test execution failed: {str(e)}"}), 500
+    if results and isinstance(results[0], dict) and "error" in results[0] and len(results[0]) == 1:
+        return jsonify(results[0]), 500
     return jsonify(results)
 
 @app.route('/api/testing/<run_id>/results')
