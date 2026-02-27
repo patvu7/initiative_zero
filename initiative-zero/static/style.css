@@ -873,3 +873,100 @@ body { font-family: var(--sans); background: var(--bg); color: var(--tx); line-h
 .code-filename[title]:hover {
   cursor: default;
 }
+
+/* ─── DATA DETAIL (sub-text under data rows) ─── */
+.data-detail {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--tx3);
+  line-height: 1.5;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 4px;
+}
+.data-detail:empty { display: none; }
+
+.data-detail-list {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--tx3);
+  line-height: 1.5;
+  padding: 4px 0 2px;
+}
+.data-detail-list:empty { display: none; }
+.data-detail-list .detail-item {
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--border);
+  margin: 3px 0;
+  color: var(--tx2);
+}
+.data-detail-list .detail-item.severity-high { border-left-color: var(--red); }
+.data-detail-list .detail-item.severity-medium { border-left-color: var(--amber); }
+.data-detail-list .detail-item.severity-low { border-left-color: var(--green); }
+
+.data-detail-list .detail-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--tx4);
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+/* ─── RUBRIC GRID ─── */
+.rubric-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 10px 0 16px;
+}
+.rubric-item {
+  background: var(--bg-surface);
+  padding: 12px 10px;
+  text-align: center;
+}
+.rubric-dim {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--tx3);
+  margin-bottom: 6px;
+}
+.rubric-score {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.rubric-score.high { color: var(--green-tx); }
+.rubric-score.mid { color: var(--amber-tx); }
+.rubric-score.low { color: var(--red-tx); }
+.rubric-weight {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--tx4);
+  margin-bottom: 4px;
+}
+.rubric-rationale {
+  font-size: 10px;
+  color: var(--tx3);
+  line-height: 1.4;
+  text-align: left;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 1100px) {
+  .rubric-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+  .rubric-grid { grid-template-columns: repeat(2, 1fr); }
+}

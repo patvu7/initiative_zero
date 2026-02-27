@@ -122,51 +122,90 @@
 
       <div class="processing" id="a-proc">
         <div class="processing-dots"><span></span><span></span><span></span></div>
-        <span class="processing-text">Explainer Agent analyzing claims_processing.cbl…</span>
+        <span class="processing-text">Explainer Agent performing deep analysis…</span>
       </div>
 
       <div id="a-results" style="display:none">
+        <!-- ─── DATA GRID ─── -->
         <div class="data-grid" id="analysis-grid">
+          <!-- App Analysis -->
           <div class="data-card">
             <div class="data-card-title"><span class="dot"></span>App Analysis</div>
             <div class="data-row"><span class="data-label">Purpose</span><span class="data-val" id="a-purpose">—</span></div>
             <div class="data-row"><span class="data-label">Stack</span><span class="data-val" id="a-stack">—</span></div>
             <div class="data-row"><span class="data-label">Dependencies</span><span class="data-val" id="a-deps">—</span></div>
             <div class="data-row"><span class="data-label">Criticality</span><span class="data-val" id="a-criticality">—</span></div>
+            <div class="data-row"><span class="data-label">Domain</span><span class="data-val" id="a-domain">—</span></div>
+            <div class="data-row"><span class="data-label">Data Sensitivity</span><span class="data-val" id="a-data-sensitivity">—</span></div>
+            <div class="data-detail" id="a-criticality-detail"></div>
+            <div class="data-detail" id="a-sensitivity-detail"></div>
           </div>
+
+          <!-- Code Analysis -->
           <div class="data-card">
             <div class="data-card-title"><span class="dot"></span>Code Analysis</div>
             <div class="data-row"><span class="data-label">Cyclomatic</span><span class="data-val" id="a-cyclomatic">—</span></div>
             <div class="data-row"><span class="data-label">Dead code</span><span class="data-val" id="a-deadcode">—</span></div>
             <div class="data-row"><span class="data-label">Security</span><span class="data-val" id="a-security">—</span></div>
             <div class="data-row"><span class="data-label">Workarounds</span><span class="data-val" id="a-workarounds">—</span></div>
+            <div class="data-detail" id="a-cyclomatic-detail"></div>
+            <div class="data-detail" id="a-deadcode-detail"></div>
+            <div class="data-detail-list" id="a-security-list"></div>
+            <div class="data-detail-list" id="a-workaround-list"></div>
+            <div class="data-detail-list" id="a-quality-list"></div>
           </div>
+
+          <!-- Test Analysis -->
           <div class="data-card">
             <div class="data-card-title"><span class="dot"></span>Test Analysis</div>
             <div class="data-row"><span class="data-label">Coverage</span><span class="data-val" id="a-coverage">—</span></div>
             <div class="data-row"><span class="data-label">Unit tests</span><span class="data-val" id="a-unit">—</span></div>
             <div class="data-row"><span class="data-label">Integration</span><span class="data-val" id="a-integration">—</span></div>
             <div class="data-row"><span class="data-label">Edge cases</span><span class="data-val" id="a-edgecases">—</span></div>
+            <div class="data-detail" id="a-coverage-rationale"></div>
+            <div class="data-detail-list" id="a-edgecase-list"></div>
+            <div class="data-detail-list" id="a-testing-risks-list"></div>
           </div>
+
+          <!-- Cost Analysis -->
           <div class="data-card">
             <div class="data-card-title"><span class="dot"></span>Cost Analysis</div>
             <div class="data-row"><span class="data-label">Annual maint.</span><span class="data-val" id="a-annual">—</span></div>
             <div class="data-row"><span class="data-label">AI migration</span><span class="data-val" id="a-ai-cost">—</span></div>
             <div class="data-row"><span class="data-label">Manual migration</span><span class="data-val" id="a-manual-cost">—</span></div>
             <div class="data-row"><span class="data-label">ROI breakeven</span><span class="data-val" id="a-roi">—</span></div>
+            <div class="data-detail" id="a-maintenance-breakdown"></div>
+            <div class="data-detail-list" id="a-hidden-costs-list"></div>
           </div>
         </div>
 
+        <!-- ─── MIGRATION RISKS ─── -->
+        <div class="section-label" id="a-risks-label" style="display:none">Migration Risks</div>
+        <div class="code-viewer" id="a-risks-table-wrap" style="display:none;margin-bottom:0">
+          <table class="rules-table">
+            <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+            <tbody id="a-risks-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- ─── CONFIDENCE RUBRIC ─── -->
+        <div class="section-label">Confidence Scoring Rubric</div>
+        <div class="rubric-grid" id="rubric-grid">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- ─── CONFIDENCE BAR ─── -->
         <div class="confidence-block">
           <div class="confidence-bar-wrap">
-            <div class="confidence-label">Migration Confidence</div>
+            <div class="confidence-label">Migration Confidence (Weighted Score)</div>
             <div class="confidence-bar"><div class="confidence-fill" id="conf-fill"></div></div>
             <div class="confidence-rec" id="conf-rec"></div>
           </div>
           <div class="confidence-score" id="conf-score">—</div>
         </div>
 
-        <div class="action-bar">
+        <div class="action-bar" style="gap:10px">
+          <button class="btn" onclick="downloadAnalysisReport()">↓ Download Report</button>
           <button class="btn-advance" onclick="advanceZone(3)">Extract Rules →</button>
         </div>
       </div>
