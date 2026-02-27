@@ -204,7 +204,8 @@ def run_tests(run_id: str) -> list:
     ).fetchone()
 
     if not gen_row:
-        raise ValueError(f"No generated code found for run {run_id}")
+        db.close()
+        return [{"error": f"No generated code found for run {run_id}"}]
 
     generated_code = gen_row["code"]
 

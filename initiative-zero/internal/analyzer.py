@@ -1,6 +1,6 @@
 import json
 import anthropic
-from database import get_db, new_id, now_iso
+from database import get_db, new_id, now_iso, strip_json_fences
 
 client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY env var
 
@@ -55,23 +55,24 @@ def run_analysis(run_id: str, source_code: str, language: str = "COBOL") -> dict
 
     prompt = ANALYSIS_USER_PROMPT.format(language=language, source_code=source_code)
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2000,
-        system=ANALYSIS_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}]
-    )
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            system=ANALYSIS_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}]
+        )
+    except Exception as e:
+        return {"error": f"Claude API call failed: {e}"}
 
     raw_text = response.content[0].text
 
-    # Parse JSON — strip markdown fences if present
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.split("\n", 1)[1]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
+    try:
+        cleaned = strip_json_fences(raw_text)
+        metrics = json.loads(cleaned)
+    except (json.JSONDecodeError, ValueError) as e:
+        return {"error": f"Failed to parse analysis response: {e}", "raw_response": raw_text}
 
-    metrics = json.loads(cleaned)
     confidence = metrics.get("confidence_score", 0.0)
     recommendation = metrics.get("recommendation", "Caution")
 

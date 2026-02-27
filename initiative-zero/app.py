@@ -7,10 +7,12 @@ from internal.extractor import run_extraction, approve_spec
 from external.generator import run_generation
 from external.tester import run_tests
 import json
-import threading
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
+
+# Initialize database on startup (works for gunicorn, import, and direct run)
+init_db()
 
 # ─── Static Frontend ───
 @app.route('/')
@@ -225,5 +227,4 @@ def api_get_decisions(run_id):
 
 
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
