@@ -72,6 +72,8 @@ def api_run_analysis():
         return jsonify({"error": "Source file not found"}), 404
 
     result = run_analysis(run_id, source["content"], run["source_language"])
+    if "error" in result:
+        return jsonify(result), 500
     return jsonify(result)
 
 @app.route('/api/analysis/<run_id>')

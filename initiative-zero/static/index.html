@@ -533,6 +533,9 @@ async function runAnalysis() {
     const result = await api('/api/analysis/run', 'POST', { run_id: state.runId });
     state.analysis = result;
     const m = result.metrics;
+    if (!m) {
+      throw new Error(result.error || 'Analysis returned no metrics');
+    }
 
     document.getElementById('a-proc').style.display = 'none';
     document.getElementById('a-results').style.display = 'block';
