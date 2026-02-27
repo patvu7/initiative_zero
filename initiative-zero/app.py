@@ -8,7 +8,7 @@ from external.generator import run_generation
 from external.tester import run_tests
 import json
 
-app = Flask(__name__, static_folder='static', static_url_path='')
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app)
 
 # Initialize database on startup (works for gunicorn, import, and direct run)
