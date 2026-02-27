@@ -128,15 +128,23 @@ async function runAnalysis() {
     document.getElementById('a-proc').style.display = 'none';
     document.getElementById('a-results').style.display = 'block';
 
-    // App Analysis
+    // ── App Analysis ──
     const app = m.app_analysis || {};
     document.getElementById('a-purpose').textContent = app.purpose || '—';
     document.getElementById('a-stack').textContent = app.stack || '—';
     document.getElementById('a-deps').textContent =
       (app.dependencies_upstream || 0) + ' upstream, ' + (app.dependencies_downstream || 0) + ' downstream';
-    document.getElementById('a-criticality').textContent = app.criticality || '—';
+    const critEl = document.getElementById('a-criticality');
+    critEl.textContent = app.criticality || '—';
+    if (app.criticality === 'Tier 1') critEl.classList.add('bad');
+    document.getElementById('a-domain').textContent = app.domain || '—';
+    const dsEl = document.getElementById('a-data-sensitivity');
+    dsEl.textContent = app.data_sensitivity || '—';
+    if (app.data_sensitivity === 'High') dsEl.classList.add('bad');
+    document.getElementById('a-criticality-detail').textContent = app.criticality_rationale || '';
+    document.getElementById('a-sensitivity-detail').textContent = app.data_sensitivity_rationale || '';
 
-    // Code Analysis
+    // ── Code Analysis ──
     const code = m.code_analysis || {};
     const cyc = document.getElementById('a-cyclomatic');
     cyc.textContent = code.cyclomatic_complexity || '—';
@@ -149,7 +157,13 @@ async function runAnalysis() {
     if ((code.security_issues || 0) > 0) sec.classList.add('bad');
     document.getElementById('a-workarounds').textContent = (code.workarounds_identified || 0) + ' identified';
 
-    // Test Analysis
+    document.getElementById('a-cyclomatic-detail').textContent = code.cyclomatic_detail || '';
+    document.getElementById('a-deadcode-detail').textContent = code.dead_code_detail || '';
+    renderDetailList('a-security-list', 'Security Concerns', code.security_detail || []);
+    renderDetailList('a-workaround-list', 'Workaround Details', code.workaround_details || []);
+    renderDetailList('a-quality-list', 'Code Quality', code.code_quality_notes || []);
+
+    // ── Test Analysis ──
     const test = m.test_analysis || {};
     const cov = document.getElementById('a-coverage');
     cov.textContent = (test.estimated_coverage_pct || 0).toFixed(0) + '%';
@@ -158,12 +172,15 @@ async function runAnalysis() {
     const integ = document.getElementById('a-integration');
     integ.textContent = test.has_integration_tests || '—';
     if (test.has_integration_tests === 'None') integ.classList.add('bad');
-    const edge = document.getElementById('a-edgecases');
     const edgeCases = test.untested_edge_cases || [];
-    edge.textContent = edgeCases.length > 0 ? edgeCases[0] : '—';
-    if (edgeCases.length > 0) edge.classList.add('bad');
+    document.getElementById('a-edgecases').textContent = edgeCases.length + ' identified';
+    if (edgeCases.length > 0) document.getElementById('a-edgecases').classList.add('bad');
 
-    // Cost Analysis
+    document.getElementById('a-coverage-rationale').textContent = test.coverage_rationale || '';
+    renderDetailList('a-edgecase-list', 'Untested Edge Cases', edgeCases);
+    renderDetailList('a-testing-risks-list', 'Testing Risks', test.testing_risks || []);
+
+    // ── Cost Analysis ──
     const econ = m.migration_economics || {};
     document.getElementById('a-annual').textContent = econ.estimated_annual_maintenance || '—';
     const aiCost = document.getElementById('a-ai-cost');
@@ -173,8 +190,53 @@ async function runAnalysis() {
     const roi = document.getElementById('a-roi');
     roi.textContent = (econ.roi_breakeven_months || '—') + ' months';
     roi.classList.add('good');
+    document.getElementById('a-maintenance-breakdown').textContent = econ.maintenance_breakdown || '';
+    renderDetailList('a-hidden-costs-list', 'Hidden Costs', econ.hidden_costs || []);
 
-    // Confidence bar
+    // ── Migration Risks ──
+    const risks = m.migration_risks || [];
+    if (risks.length > 0) {
+      document.getElementById('a-risks-label').style.display = '';
+      document.getElementById('a-risks-table-wrap').style.display = '';
+      const rtbody = document.getElementById('a-risks-tbody');
+      rtbody.innerHTML = '';
+      risks.forEach(r => {
+        const tr = document.createElement('tr');
+        const sevCls = r.severity === 'High' ? 'bad' : r.severity === 'Medium' ? 'warn' : '';
+        tr.innerHTML =
+          '<td>' + escHtml(r.risk) + '</td>' +
+          '<td><span class="data-val ' + sevCls + '">' + escHtml(r.severity) + '</span></td>' +
+          '<td>' + escHtml(r.mitigation) + '</td>';
+        rtbody.appendChild(tr);
+      });
+    }
+
+    // ── Confidence Rubric ──
+    const rubric = m.confidence_rubric || {};
+    const rubricGrid = document.getElementById('rubric-grid');
+    rubricGrid.innerHTML = '';
+    const dimLabels = {
+      code_clarity: 'Code Clarity',
+      business_rule_extractability: 'Rule Extractability',
+      test_coverage_confidence: 'Test Coverage',
+      dependency_isolation: 'Dep. Isolation',
+      migration_complexity: 'Migration Simplicity'
+    };
+    for (const [key, label] of Object.entries(dimLabels)) {
+      const dim = rubric[key] || {};
+      const scorePct = Math.round((dim.score || 0) * 100);
+      const scoreCls = scorePct >= 70 ? 'high' : scorePct >= 40 ? 'mid' : 'low';
+      const item = document.createElement('div');
+      item.className = 'rubric-item';
+      item.innerHTML =
+        '<div class="rubric-dim">' + escHtml(label) + '</div>' +
+        '<div class="rubric-score ' + scoreCls + '">' + scorePct + '%</div>' +
+        '<div class="rubric-weight">Weight: ' + Math.round((dim.weight || 0) * 100) + '%</div>' +
+        '<div class="rubric-rationale">' + escHtml(dim.rationale || '—') + '</div>';
+      rubricGrid.appendChild(item);
+    }
+
+    // ── Confidence bar ──
     const confPct = Math.round((result.confidence_score || 0) * 100);
     setTimeout(() => {
       document.getElementById('conf-fill').style.width = confPct + '%';
@@ -197,6 +259,31 @@ async function runAnalysis() {
     document.getElementById('a-proc').style.display = 'none';
     toast('Analysis error: ' + e.message);
   }
+}
+
+function renderDetailList(containerId, label, items) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  if (!items || items.length === 0) return;
+  const labelEl = document.createElement('div');
+  labelEl.className = 'detail-label';
+  labelEl.textContent = label;
+  container.appendChild(labelEl);
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'detail-item';
+    div.textContent = typeof item === 'string' ? item : JSON.stringify(item);
+    container.appendChild(div);
+  });
+}
+
+function downloadAnalysisReport() {
+  if (!state.runId) {
+    toast('No analysis available');
+    return;
+  }
+  window.open('/api/analysis/' + state.runId + '/report', '_blank');
 }
 
 // ═══ ZONE 3: RULE STRAINER ═══
