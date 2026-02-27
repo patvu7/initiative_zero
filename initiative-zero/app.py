@@ -287,6 +287,8 @@ def api_production_decision(run_id):
 def api_coexistence_simulate(run_id):
     """Simulate coexistence: run one transaction through both legacy and modern."""
     data = request.json
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
     test_index = data.get("test_index", 0)
 
     db = get_db()
@@ -303,12 +305,15 @@ def api_coexistence_simulate(run_id):
     source_key = run_row["source_file"].replace(".cbl", "")
     test_cases = LEGACY_BEHAVIORS.get(source_key, {}).get("test_cases", [])
 
-    if test_index >= len(test_cases):
+    if not isinstance(test_index, int) or test_index < 0 or test_index >= len(test_cases):
         return jsonify({"error": "Test index out of range"}), 400
 
     tc = test_cases[test_index]
-    harness = build_test_harness(gen_row["code"], tc["input"])
-    exec_result = execute_python(gen_row["code"], harness)
+    try:
+        harness = build_test_harness(gen_row["code"], tc["input"])
+        exec_result = execute_python(gen_row["code"], harness)
+    except Exception as e:
+        return jsonify({"error": f"Simulation execution failed: {str(e)}"}), 500
 
     if exec_result["success"] and isinstance(exec_result["output"], dict):
         modern_output = exec_result["output"]

@@ -98,7 +98,7 @@ def run_generation(run_id: str, requirements_doc_id: str, target_language: str =
         client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4000,
+            max_tokens=8192,
             system=GENERATION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": full_prompt}]
         )
