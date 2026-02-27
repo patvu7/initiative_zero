@@ -1032,3 +1032,33 @@ body { font-family: var(--sans); background: var(--bg); color: var(--tx); line-h
   color: var(--green-tx);
   margin-top: 6px;
 }
+
+/* ─── COEXISTENCE SIMULATOR ─── */
+.coex-live { margin: 16px 0; }
+.coex-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+.coex-flow { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px; margin-bottom: 16px; }
+.coex-input-panel { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; opacity: 0.5; transition: opacity 0.3s; }
+.coex-input-panel.active { opacity: 1; }
+.coex-panel-header { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tx3); margin-bottom: 8px; }
+.coex-data { font-family: var(--mono); font-size: 11px; color: var(--tx2); line-height: 1.6; white-space: pre-wrap; margin: 0; }
+.coex-router { text-align: center; margin-bottom: 16px; }
+.coex-router-label { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--blue-tx); background: var(--blue-dim); display: inline-block; padding: 4px 14px; border-radius: 4px; margin-bottom: 8px; }
+.coex-router-arrows { display: flex; justify-content: center; gap: 60px; }
+.coex-arrow { font-family: var(--mono); font-size: 9px; color: var(--tx4); }
+.coex-arrow.left .coex-arrow-label { color: var(--green-tx); }
+.coex-arrow.right .coex-arrow-label { color: var(--amber-tx); }
+.coex-systems { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.coex-system { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; padding: 14px; transition: border-color 0.3s; }
+.coex-system.legacy.done { border-color: var(--green); }
+.coex-system.modern.done { border-color: var(--blue); }
+.coex-system-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.coex-system-badge { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 3px; }
+.coex-system-badge.legacy { background: var(--green-dim); color: var(--green-tx); }
+.coex-system-badge.modern { background: var(--blue-dim); color: var(--blue-tx); }
+.coex-system-role { font-family: var(--mono); font-size: 9px; color: var(--tx4); letter-spacing: .06em; }
+.coex-system-status { font-family: var(--mono); font-size: 10px; color: var(--tx4); margin-bottom: 8px; }
+.coex-latency { font-family: var(--mono); font-size: 10px; color: var(--tx4); margin-top: 8px; text-align: right; }
+.coex-comparator { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; text-align: center; }
+.coex-comparator-header { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--blue-tx); margin-bottom: 8px; }
+.coex-comparator-result { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.coex-comparator-detail { font-family: var(--mono); font-size: 10px; color: var(--tx3); }
