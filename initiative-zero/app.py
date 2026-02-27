@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from database import init_db, get_db, new_id, now_iso
 from internal.legacy_store import list_files, get_file
@@ -89,6 +89,19 @@ def api_get_analysis(run_id):
         "confidence_score": row["confidence_score"],
         "recommendation": row["recommendation"]
     })
+
+@app.route('/api/analysis/<run_id>/report')
+def api_get_analysis_report(run_id):
+    """Return a downloadable Markdown analysis report."""
+    from internal.analyzer import generate_report_markdown
+    report = generate_report_markdown(run_id)
+    if not report:
+        return jsonify({"error": "No analysis found for this run"}), 404
+    return Response(
+        report,
+        mimetype='text/markdown',
+        headers={'Content-Disposition': f'attachment; filename=analysis-report-{run_id}.md'}
+    )
 
 # ─── Zone 3: Extraction ───
 @app.route('/api/extraction/run', methods=['POST'])
