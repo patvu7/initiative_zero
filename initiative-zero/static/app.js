@@ -879,6 +879,7 @@ async function runTesting() {
     breakVal.style.color = breakingCount > 0 ? 'var(--red-tx)' : 'var(--green-tx)';
 
     pipelineLog('ZONE-5', 'Results: ' + identicalCount + ' identical, ' + (totalTests - identicalCount - driftCount) + ' acceptable, ' + driftCount + ' semantic drift');
+    updateDriftGate(results);
     toast(driftCount > 0
       ? driftCount + ' Type 2+ drift requires adjudication'
       : 'All tests passed — zero drift');
@@ -890,7 +891,56 @@ async function runTesting() {
 }
 
 /**
- * Adjudicate Type 2+ drift: accept the variance, preserve the legacy bug,
+ * Update the drift gate UI dynamically based on test results.
+ * Auto-clears the gate if all tests are Type 0/1 (no drift requiring adjudication).
+ * Populates the gate description with actual drift details when adjudication is needed.
+ * @param {Array} results - Test result array from the API
+ */
+function updateDriftGate(results) {
+  const gate = document.getElementById('drift-gate');
+  const gateHeader = gate.querySelector('.human-gate-header');
+  const gateDesc = gate.querySelector('.gate-desc');
+  const actions = document.getElementById('drift-actions');
+  const dr = document.getElementById('drift-decision');
+
+  const driftResults = results.filter(r => r.drift_type >= 2);
+  const breakingResults = results.filter(r => r.drift_type === 3);
+
+  if (driftResults.length === 0) {
+    // Auto-clear: no drift requiring adjudication
+    gateHeader.textContent = '\u2713 Quality Gate \u2014 No Drift Detected';
+    gateHeader.style.color = 'var(--green-tx)';
+    gateHeader.style.background = 'var(--green-dim)';
+    gateHeader.style.borderBottomColor = 'rgba(34, 197, 94, 0.15)';
+    gate.style.borderColor = 'var(--green)';
+    gateDesc.textContent = 'All ' + results.length + ' tests passed with Type 0 or Type 1 classification. No human adjudication required.';
+    actions.style.display = 'none';
+    document.getElementById('btn-to-prod').disabled = false;
+    pipelineLog('ZONE-5', 'Quality gate auto-cleared \u2014 zero drift detected', true);
+    return;
+  }
+
+  // Build dynamic description from actual drift results
+  const summaryParts = [];
+  if (driftResults.length > 0) summaryParts.push(driftResults.length + ' Type 2+ semantic drift');
+  if (breakingResults.length > 0) summaryParts.push(breakingResults.length + ' Type 3 breaking');
+
+  gateHeader.textContent = '\u26a0 Human Gate \u2014 ' + summaryParts.join(', ') + ' Requires Adjudication';
+
+  // Show details of the first drift result as representative example
+  const rep = driftResults[0];
+  const legacyStr = formatOutput(rep.legacy_output);
+  const modernStr = formatOutput(rep.modern_output);
+  gateDesc.innerHTML = '<strong>' + escHtml(rep.test_case) + ':</strong> Legacy output ' +
+    escHtml(legacyStr) + ' vs. Modern output ' + escHtml(modernStr) +
+    '. Classification: ' + escHtml(rep.drift_classification) + '.' +
+    (driftResults.length > 1 ? ' (' + (driftResults.length - 1) + ' more drift result' + (driftResults.length > 2 ? 's' : '') + ' below)' : '');
+
+  actions.style.display = '';
+}
+
+/**
+ * Adjudicate Type 2+ drift: accept the variance, preserve the legacy behavior,
  * or escalate to compliance. Records decision in the audit trail.
  * @param {string} action - "accept", "preserve", or "escalate"
  */
@@ -903,7 +953,9 @@ async function adjudicate(action) {
   const driftResult = (state.testResults || []).find(r => r.drift_type >= 2);
   const testId = driftResult ? driftResult.test_id : null;
 
-  const decisionLabel = action === 'accept' ? 'ACCEPT_VARIANCE' : action === 'preserve' ? 'PRESERVE_BUG' : 'ESCALATE';
+  const decisionLabel = action === 'accept' ? 'ACCEPT_VARIANCE'
+    : action === 'preserve' ? 'PRESERVE_LEGACY'
+    : 'ESCALATE';
 
   try {
     await api('/api/testing/' + state.runId + '/adjudicate', 'POST', {
@@ -913,7 +965,7 @@ async function adjudicate(action) {
       rationale: action === 'accept'
         ? 'Modern rounding is correct per standards'
         : action === 'preserve'
-          ? 'Legacy truncation maintained for compatibility'
+          ? 'Legacy behavior preserved for backward compatibility'
           : 'Sent to compliance review'
     });
   } catch (e) {
@@ -926,24 +978,24 @@ async function adjudicate(action) {
 
   if (action === 'accept') {
     dr.className = 'decision-record accepted show';
-    dr.innerHTML = '<div class="dr-header">✓ ACCEPT_VARIANCE</div>' +
+    dr.innerHTML = '<div class="dr-header">\u2713 ACCEPT_VARIANCE</div>' +
       '<div class="dr-body">Modern rounding (HALF_UP) is correct per CAD standards. Classified as Type 1 going forward.</div>' +
-      '<div class="dr-ts">BA + Tech Lead · ' + ts + '</div>';
+      '<div class="dr-ts">' + OPERATOR.name + ' (' + OPERATOR.role + ') \u00b7 ' + ts + '</div>';
     document.getElementById('btn-to-prod').disabled = false;
-    toast('Variance accepted — quality gate cleared');
+    toast('Variance accepted \u2014 quality gate cleared');
   } else if (action === 'preserve') {
     dr.className = 'decision-record preserved show';
-    dr.innerHTML = '<div class="dr-header">⚠ PRESERVE_BUG</div>' +
-      '<div class="dr-body">Legacy truncation maintained for backward compatibility. Documented rationale: downstream systems depend on truncated values.</div>' +
-      '<div class="dr-ts">Tech Lead + BA · ' + ts + '</div>';
+    dr.innerHTML = '<div class="dr-header">\u26a0 PRESERVE_LEGACY</div>' +
+      '<div class="dr-body">Legacy behavior preserved for backward compatibility. Documented rationale: downstream systems depend on existing output format.</div>' +
+      '<div class="dr-ts">' + OPERATOR.name + ' (' + OPERATOR.role + ') \u00b7 ' + ts + '</div>';
     document.getElementById('btn-to-prod').disabled = false;
-    toast('Bug preserved — documented in governance ledger');
+    toast('Legacy behavior preserved \u2014 documented in governance ledger');
   } else {
     dr.className = 'decision-record escalated show';
-    dr.innerHTML = '<div class="dr-header">↗ ESCALATED TO COMPLIANCE</div>' +
+    dr.innerHTML = '<div class="dr-header">\u2197 ESCALATED TO COMPLIANCE</div>' +
       '<div class="dr-body">Rounding difference sent to compliance review. Slice blocked until resolved.</div>' +
-      '<div class="dr-ts">Tech Lead · ' + ts + '</div>';
-    toast('Escalated — slice blocked pending compliance');
+      '<div class="dr-ts">' + OPERATOR.name + ' (' + OPERATOR.role + ') \u00b7 ' + ts + '</div>';
+    toast('Escalated \u2014 slice blocked pending compliance');
   }
 }
 

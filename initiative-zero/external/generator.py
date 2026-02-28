@@ -45,6 +45,23 @@ This is the entry point that the testing harness will call.
 - Convert all Decimal results to string in the return dict
 - On any error, return {"error": "description", "error_code": <int>} — never raise
 
+OUTPUT FORMAT CONTRACT:
+The process() method must return a dict with these exact keys and value types:
+- For claims/approval systems:
+  "status": str — uppercase, e.g. "APPROVED" or "DENIED"
+  "payout": str — Decimal as string to 2dp, e.g. "4500.00" (present when APPROVED)
+  "error_code": int — numeric code (present when DENIED)
+- For trade/rebalance systems:
+  "action": str — uppercase, e.g. "SELL", "BUY", "HOLD"
+  "trade_amount": str — Decimal as string to 2dp, e.g. "7000.00" (present when SELL/BUY)
+  "reason": str — uppercase explanation (present when HOLD)
+  "tlh_flag": bool — True/False (present when tax-loss harvest applies)
+  "error_code": int — numeric code (present on validation failures)
+- On any error: {"error": str, "error_code": int}
+All financial values MUST be Decimal converted to str with exactly 2 decimal places.
+Boolean fields MUST be Python bool (True/False), not strings.
+Do NOT invent additional output keys beyond those listed above.
+
 SUPPLEMENTAL CONTEXT:
 The requirements document may include a "SUPPLEMENTAL CONTEXT FROM SYSTEM ANALYSIS" section. Use this to:
 - Understand data sensitivity requirements and add appropriate validation
@@ -66,6 +83,8 @@ IMPLEMENTATION CHECKLIST:
 6. Error handling must return dicts with "error" key, never raise exceptions
 7. Include input validation for missing/empty required fields
 8. If "SUPPLEMENTAL CONTEXT" is present, address each listed testing gap defensively
+9. Return values must use the EXACT key names from the OUTPUT FORMAT CONTRACT (e.g. "payout" not "amount", "trade_amount" not "trade_value")
+10. Boolean fields (tlh_flag, wash_sale_flag) must be Python bool True/False, never strings "true"/"false"
 
 Return ONLY the Python code. No markdown fences, no explanations."""
 
