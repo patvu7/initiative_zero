@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Initiative Zero — Migration Pipeline</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -354,7 +354,7 @@
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="code-viewer">
-            <div class="code-header"><span class="code-filename">Blocked</span><span style="font-family:var(--mono);font-size:9px;color:var(--red-tx)">✗ INTERNAL</span></div>
+            <div class="code-header"><span class="code-filename">Blocked</span><span style="font-family:var(--mono);font-size:9px;color:var(--red)">✗ INTERNAL</span></div>
             <div class="code-body" style="max-height:140px"><pre><span class="cmt">✗ COBOL source code</span>
 <span class="cmt">✗ DB2 schemas</span>
 <span class="cmt">✗ JCL definitions</span>
@@ -362,7 +362,7 @@
 <span class="cmt">✗ SQLJ artifacts</span></pre></div>
           </div>
           <div class="code-viewer">
-            <div class="code-header"><span class="code-filename">Passes Through</span><span style="font-family:var(--mono);font-size:9px;color:var(--green-tx)">✓ ALLOWED</span></div>
+            <div class="code-header"><span class="code-filename">Passes Through</span><span style="font-family:var(--mono);font-size:9px;color:var(--green)">✓ ALLOWED</span></div>
             <div class="code-body" style="max-height:140px"><pre><span class="str">✓ BR-001 through BR-006</span>
 <span class="str">✓ OBS-01 behavioral note</span>
 <span class="str">✓ Plain-text requirements</span>
@@ -403,7 +403,7 @@
 
         <div id="gen-prompt-panel" style="margin-top:16px;display:none;">
           <button class="btn" onclick="toggleGenPrompt()" id="gen-prompt-toggle" style="margin-bottom:8px;">▶ View Generation Prompt (Firewall Proof)</button>
-          <div id="gen-prompt-content" style="display:none;background:var(--blue-dim);border:1px solid var(--blue);border-radius:6px;padding:14px;max-height:400px;overflow-y:auto;">
+          <div id="gen-prompt-content" style="display:none;background:var(--indigo-fill);border:1px solid var(--indigo);border-radius:6px;padding:14px;max-height:400px;overflow-y:auto;">
             <pre id="gen-prompt-text" style="font-family:var(--mono);font-size:11px;color:var(--tx2);white-space:pre-wrap;"></pre>
           </div>
         </div>
@@ -412,7 +412,7 @@
           <div class="file-meta-item"><div class="file-meta-label">Architecture</div><div class="file-meta-value" style="font-size:11px">Clean domain separation</div></div>
           <div class="file-meta-item"><div class="file-meta-label">Dependencies</div><div class="file-meta-value" style="font-size:11px">Python stdlib only</div></div>
           <div class="file-meta-item"><div class="file-meta-label">Traceability</div><div class="file-meta-value" style="font-size:11px">Each method → BR-###</div></div>
-          <div class="file-meta-item"><div class="file-meta-label">Tech Debt</div><div class="file-meta-value" style="font-size:11px;color:var(--green-tx)">Zero</div></div>
+          <div class="file-meta-item"><div class="file-meta-label">Tech Debt</div><div class="file-meta-value" style="font-size:11px;color:var(--green)">Zero</div></div>
         </div>
 
         <div class="action-bar">

@@ -601,17 +601,17 @@ function reviewSmeItem(index, action) {
 
   if (action === 'confirm') {
     status.textContent = '✓ Confirmed by ' + OPERATOR.name + ' at ' + ts;
-    status.style.color = 'var(--green-tx)';
+    status.style.color = 'var(--green)';
     pipelineLog('ZONE-3', 'SME review: ' + ruleId + ' confirmed by ' + OPERATOR.name, true);
   } else if (action === 'modify') {
     status.textContent = '✎ Modified & confirmed by ' + OPERATOR.name + ' at ' + ts;
-    status.style.color = 'var(--amber-tx)';
+    status.style.color = 'var(--amber)';
     pipelineLog('ZONE-3', 'SME review: ' + ruleId + ' modified by ' + OPERATOR.name, true);
   } else {
     status.textContent = '✗ Rejected by ' + OPERATOR.name + ' at ' + ts;
-    status.style.color = 'var(--red-tx)';
+    status.style.color = 'var(--red)';
     item.style.borderColor = 'var(--red)';
-    item.style.background = 'var(--red-dim)';
+    item.style.background = 'var(--red-fill)';
     pipelineLog('ZONE-3', 'SME review: ' + ruleId + ' rejected by ' + OPERATOR.name, true);
   }
 
@@ -855,28 +855,28 @@ async function runTesting() {
     passIcon.className = 'qg-icon pass';
     const passVal = document.getElementById('qg-pass-val');
     passVal.textContent = totalTests + '/' + totalTests;
-    passVal.style.color = 'var(--green-tx)';
+    passVal.style.color = 'var(--green)';
 
     const identIcon = document.getElementById('qg-identical-icon');
     identIcon.textContent = identicalCount === totalTests ? '✓' : '!';
     identIcon.className = 'qg-icon ' + (identicalCount === totalTests ? 'pass' : 'warn');
     const identVal = document.getElementById('qg-identical-val');
     identVal.textContent = identicalCount + '/' + totalTests;
-    identVal.style.color = identicalCount === totalTests ? 'var(--green-tx)' : 'var(--amber-tx)';
+    identVal.style.color = identicalCount === totalTests ? 'var(--green)' : 'var(--amber)';
 
     const driftIcon = document.getElementById('qg-drift-icon');
     driftIcon.textContent = driftCount > 0 ? '!' : '✓';
     driftIcon.className = 'qg-icon ' + (driftCount > 0 ? 'warn' : 'pass');
     const driftVal = document.getElementById('qg-drift-val');
     driftVal.textContent = driftCount > 0 ? driftCount + ' pending' : 'None';
-    driftVal.style.color = driftCount > 0 ? 'var(--amber-tx)' : 'var(--green-tx)';
+    driftVal.style.color = driftCount > 0 ? 'var(--amber)' : 'var(--green)';
 
     const breakIcon = document.getElementById('qg-breaking-icon');
     breakIcon.textContent = breakingCount > 0 ? '✗' : '✓';
     breakIcon.className = 'qg-icon ' + (breakingCount > 0 ? 'warn' : 'pass');
     const breakVal = document.getElementById('qg-breaking-val');
     breakVal.textContent = breakingCount > 0 ? breakingCount + ' found' : 'None';
-    breakVal.style.color = breakingCount > 0 ? 'var(--red-tx)' : 'var(--green-tx)';
+    breakVal.style.color = breakingCount > 0 ? 'var(--red)' : 'var(--green)';
 
     pipelineLog('ZONE-5', 'Results: ' + identicalCount + ' identical, ' + (totalTests - identicalCount - driftCount) + ' acceptable, ' + driftCount + ' semantic drift');
     updateDriftGate(results);
@@ -909,9 +909,9 @@ function updateDriftGate(results) {
   if (driftResults.length === 0) {
     // Auto-clear: no drift requiring adjudication
     gateHeader.textContent = '\u2713 Quality Gate \u2014 No Drift Detected';
-    gateHeader.style.color = 'var(--green-tx)';
-    gateHeader.style.background = 'var(--green-dim)';
-    gateHeader.style.borderBottomColor = 'rgba(34, 197, 94, 0.15)';
+    gateHeader.style.color = 'var(--green)';
+    gateHeader.style.background = 'var(--green-fill)';
+    gateHeader.style.borderBottomColor = 'var(--green-border)';
     gate.style.borderColor = 'var(--green)';
     gateDesc.textContent = 'All ' + results.length + ' tests passed with Type 0 or Type 1 classification. No human adjudication required.';
     actions.style.display = 'none';
