@@ -15,6 +15,8 @@ let state = {
 };
 
 let coexTxnCount = 0;
+let humanDecisionCount = 0;
+let coexStats = { total: 0, matched: 0, drift: 0, latencyDeltas: [] };
 
 // ═══ API HELPER ═══
 async function api(path, method = 'GET', body = null) {
@@ -48,6 +50,9 @@ function advanceZone(z) {
   const prev = document.querySelector('.nav-item[data-zone="'+(z-1)+'"]');
   if (prev) prev.classList.add('completed');
   updateStatus(z-1, 'done', '✓');
+  // Update run bar status
+  const statusMap = {1:'initiated', 2:'analyzing', 3:'extracting', 4:'generating', 5:'testing', 6:'deploying'};
+  document.getElementById('rb-status').textContent = statusMap[z] || 'active';
   goZone(z);
 }
 
@@ -98,6 +103,14 @@ async function onFileSelected(filename) {
   }
 }
 
+function updateRunBar() {
+  if (!state.runId) return;
+  const bar = document.getElementById('run-bar');
+  bar.style.display = 'flex';
+  document.getElementById('rb-run-id').textContent = state.runId;
+  document.getElementById('rb-source').textContent = state.sourceFile || '—';
+}
+
 async function createRunAndAdvance() {
   if (!state.sourceFile) {
     toast('Please select a file first');
@@ -110,6 +123,19 @@ async function createRunAndAdvance() {
       operator: 'S. Chen'
     });
     state.runId = result.run_id;
+    updateRunBar();
+
+    // Update sidebar system info
+    const sidebarSystem = document.querySelector('.sidebar-system');
+    const displayName = state.sourceFile.replace('.cbl', '').toUpperCase().replace(/_/g, '_');
+    sidebarSystem.innerHTML =
+      '<strong>System:</strong> ' + displayName + '<br>' +
+      '<strong>Source:</strong> COBOL / DB2<br>' +
+      '<strong>Run:</strong> ' + state.runId;
+
+    // Update breadcrumb
+    document.querySelector('.breadcrumb span:first-child').textContent = displayName;
+
     advanceZone(2);
   } catch (e) {
     toast('Error creating run: ' + e.message);
@@ -256,6 +282,43 @@ async function runAnalysis() {
       }, 16);
     }, 200);
 
+    // Populate AI reasoning panel from analysis data
+    const reasoningPanel = document.getElementById('reasoning-panel');
+    reasoningPanel.style.display = 'block';
+
+    const conf = result.confidence_score || 0;
+    const rec = result.recommendation || 'Caution';
+    const rationale = m.recommendation_rationale || '';
+    const risks = m.migration_risks || [];
+    const topRisk = risks.length > 0 ? risks.sort((a,b) =>
+      (a.severity === 'High' ? 0 : a.severity === 'Medium' ? 1 : 2) -
+      (b.severity === 'High' ? 0 : b.severity === 'Medium' ? 1 : 2)
+    )[0] : null;
+
+    document.getElementById('reasoning-approach').textContent =
+      'Rule extraction and greenfield generation (not lift-and-shift). ' +
+      rationale;
+
+    document.getElementById('reasoning-not-lift').textContent =
+      'Lift-and-shift would carry forward ' +
+      (code.dead_code_pct || 0).toFixed(0) + '% dead code, ' +
+      (code.workarounds_identified || 0) + ' identified workaround(s), and ' +
+      (code.security_issues || 0) + ' security issue(s). ' +
+      'Rule extraction eliminates all three by generating from requirements only.';
+
+    document.getElementById('reasoning-risk').textContent = topRisk
+      ? '[' + topRisk.severity + '] ' + topRisk.risk + ' — Mitigation: ' + topRisk.mitigation
+      : 'No high-severity migration risks identified.';
+
+    // Reference to Playbook maturity model
+    const maturityBefore = 'Ad hoc';
+    const maturityAfter = conf >= 0.7 ? 'Systematic' : 'Planned';
+    document.getElementById('reasoning-maturity').textContent =
+      'This system currently operates at "' + maturityBefore + '" modernization maturity. ' +
+      'Completing this migration moves it to "' + maturityAfter + '" with ' +
+      'documented business rules, automated testing, and a repeatable pipeline. ' +
+      'Subsequent systems will benefit from reusable domain patterns.';
+
     toast('Analysis complete — confidence ' + confPct + '%');
   } catch (e) {
     document.getElementById('a-proc').style.display = 'none';
@@ -286,6 +349,18 @@ function downloadAnalysisReport() {
     return;
   }
   window.open('/api/analysis/' + state.runId + '/report', '_blank');
+}
+
+function toggleReasoning() {
+  const body = document.getElementById('reasoning-body');
+  const toggle = document.getElementById('reasoning-toggle');
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    toggle.classList.add('open');
+  } else {
+    body.style.display = 'none';
+    toggle.classList.remove('open');
+  }
 }
 
 // ═══ ZONE 3: RULE STRAINER ═══
@@ -457,6 +532,9 @@ async function smeSign(action) {
         'Cleared to cross security firewall.</div>' +
         '<div class="dr-ts">' + escHtml(result.operator) + ' (Staff Eng) · ' + escHtml(result.timestamp) + '</div>';
       document.getElementById('btn-to-gen').disabled = false;
+      humanDecisionCount++;
+      document.getElementById('rb-decisions').textContent = humanDecisionCount;
+      document.getElementById('rb-crossings').textContent = '1';
       toast('Spec approved — firewall crossing authorized');
     } catch (e) {
       document.getElementById('sme-actions').style.display = '';
@@ -624,6 +702,9 @@ async function adjudicate(action) {
     toast('Adjudication API error: ' + e.message);
   }
 
+  humanDecisionCount++;
+  document.getElementById('rb-decisions').textContent = humanDecisionCount;
+
   if (action === 'accept') {
     dr.className = 'decision-record accepted show';
     dr.innerHTML = '<div class="dr-header">✓ ACCEPT_VARIANCE</div>' +
@@ -663,6 +744,9 @@ async function canaryDecision(action) {
   } catch (e) {
     toast('Production decision error: ' + e.message);
   }
+
+  humanDecisionCount++;
+  document.getElementById('rb-decisions').textContent = humanDecisionCount;
 
   if (action === 'promote') {
     dr.className = 'decision-record accepted show';
@@ -751,6 +835,21 @@ async function runCoexSimulation() {
         '<span class="coex-comparator-detail">' + escHtml(result.drift_classification) + '</span>';
 
       coexTxnCount++;
+
+      // Update aggregate stats
+      coexStats.total++;
+      if (result.drift_type <= 1) coexStats.matched++;
+      if (result.drift_type >= 2) coexStats.drift++;
+      coexStats.latencyDeltas.push(result.legacy_latency_ms - result.modern_latency_ms);
+
+      const statsEl = document.getElementById('coex-stats');
+      statsEl.style.display = 'grid';
+      document.getElementById('cs-total').textContent = coexStats.total;
+      document.getElementById('cs-match').textContent = coexStats.matched;
+      document.getElementById('cs-drift').textContent = coexStats.drift;
+      const avgDelta = Math.round(coexStats.latencyDeltas.reduce((a,b) => a+b, 0) / coexStats.latencyDeltas.length);
+      document.getElementById('cs-avg-delta').textContent = '-' + avgDelta + 'ms';
+
       document.getElementById('coex-log-label').style.display = '';
       document.getElementById('coex-log-wrap').style.display = '';
       const tbody = document.getElementById('coex-log-tbody');

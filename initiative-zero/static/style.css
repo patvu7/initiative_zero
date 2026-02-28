@@ -1062,3 +1062,132 @@ body { font-family: var(--sans); background: var(--bg); color: var(--tx); line-h
 .coex-comparator-header { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--blue-tx); margin-bottom: 8px; }
 .coex-comparator-result { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .coex-comparator-detail { font-family: var(--mono); font-size: 10px; color: var(--tx3); }
+
+/* ─── AI REASONING PANEL ─── */
+.reasoning-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--blue);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 16px;
+}
+.reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--blue-dim);
+  cursor: pointer;
+  transition: background .15s;
+}
+.reasoning-header:hover { background: rgba(90,142,194,.18); }
+.reasoning-icon {
+  color: var(--blue-tx);
+  font-size: 10px;
+}
+.reasoning-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--blue-tx);
+}
+.reasoning-toggle {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--blue-tx);
+  transition: transform .2s;
+}
+.reasoning-toggle.open { transform: rotate(90deg); }
+.reasoning-body {
+  padding: 14px;
+}
+.reasoning-section {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.reasoning-section:last-child { border-bottom: none; }
+.reasoning-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--blue-tx);
+  margin-bottom: 4px;
+}
+.reasoning-content {
+  font-size: 12px;
+  color: var(--tx2);
+  line-height: 1.6;
+}
+
+/* ─── RUN METADATA BAR ─── */
+.run-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+  min-height: 32px;
+}
+.run-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.run-bar-item:last-child { border-right: none; flex: 1; }
+.run-bar-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--tx4);
+}
+.run-bar-value {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--tx2);
+}
+
+/* ─── COEXISTENCE STATS ─── */
+.coex-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 16px 0;
+}
+.coex-stat {
+  background: var(--bg-surface);
+  padding: 12px 14px;
+  text-align: center;
+}
+.coex-stat-value {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--tx);
+}
+.coex-stat-value.good { color: var(--green-tx); }
+.coex-stat-value.warn { color: var(--amber-tx); }
+.coex-stat-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tx4);
+  margin-top: 2px;
+}

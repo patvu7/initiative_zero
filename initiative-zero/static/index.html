@@ -79,6 +79,29 @@
     </div>
   </div>
 
+  <div class="run-bar" id="run-bar" style="display:none">
+    <div class="run-bar-item">
+      <span class="run-bar-label">Run</span>
+      <span class="run-bar-value" id="rb-run-id">—</span>
+    </div>
+    <div class="run-bar-item">
+      <span class="run-bar-label">Source</span>
+      <span class="run-bar-value" id="rb-source">—</span>
+    </div>
+    <div class="run-bar-item">
+      <span class="run-bar-label">Status</span>
+      <span class="run-bar-value" id="rb-status">initiated</span>
+    </div>
+    <div class="run-bar-item">
+      <span class="run-bar-label">Human Decisions</span>
+      <span class="run-bar-value" id="rb-decisions">0</span>
+    </div>
+    <div class="run-bar-item">
+      <span class="run-bar-label">Firewall Crossings</span>
+      <span class="run-bar-value" id="rb-crossings">0</span>
+    </div>
+  </div>
+
   <div class="content">
 
     <!-- ═══════ ZONE 1: LEGACY ═══════ -->
@@ -202,6 +225,33 @@
             <div class="confidence-rec" id="conf-rec"></div>
           </div>
           <div class="confidence-score" id="conf-score">—</div>
+        </div>
+
+        <!-- AI Reasoning Panel — "Thought Partner" -->
+        <div class="reasoning-panel" id="reasoning-panel" style="display:none">
+          <div class="reasoning-header" onclick="toggleReasoning()">
+            <span class="reasoning-icon">◆</span>
+            <span class="reasoning-title">Migration Strategy Reasoning</span>
+            <span class="reasoning-toggle" id="reasoning-toggle">▶</span>
+          </div>
+          <div class="reasoning-body" id="reasoning-body" style="display:none">
+            <div class="reasoning-section">
+              <div class="reasoning-label">Recommended Approach</div>
+              <div class="reasoning-content" id="reasoning-approach"></div>
+            </div>
+            <div class="reasoning-section">
+              <div class="reasoning-label">Why Not Lift-and-Shift</div>
+              <div class="reasoning-content" id="reasoning-not-lift"></div>
+            </div>
+            <div class="reasoning-section">
+              <div class="reasoning-label">Key Risk to Monitor</div>
+              <div class="reasoning-content" id="reasoning-risk"></div>
+            </div>
+            <div class="reasoning-section">
+              <div class="reasoning-label">Estimated Maturity Impact</div>
+              <div class="reasoning-content" id="reasoning-maturity"></div>
+            </div>
+          </div>
         </div>
 
         <div class="action-bar" style="gap:10px">
@@ -497,6 +547,25 @@
           <div class="coex-comparator" id="coex-comparator" style="display:none">
             <div class="coex-comparator-header">Drift Comparator</div>
             <div class="coex-comparator-result" id="coex-comparator-result"></div>
+          </div>
+        </div>
+
+        <div class="coex-stats" id="coex-stats" style="display:none">
+          <div class="coex-stat">
+            <div class="coex-stat-value" id="cs-total">0</div>
+            <div class="coex-stat-label">Transactions</div>
+          </div>
+          <div class="coex-stat">
+            <div class="coex-stat-value good" id="cs-match">0</div>
+            <div class="coex-stat-label">Matched</div>
+          </div>
+          <div class="coex-stat">
+            <div class="coex-stat-value warn" id="cs-drift">0</div>
+            <div class="coex-stat-label">Drift</div>
+          </div>
+          <div class="coex-stat">
+            <div class="coex-stat-value" id="cs-avg-delta">—</div>
+            <div class="coex-stat-label">Avg Latency Δ</div>
           </div>
         </div>
 
