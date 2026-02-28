@@ -5,7 +5,7 @@ import json
 import re
 from decimal import Decimal, ROUND_HALF_UP
 import anthropic
-from database import get_db, new_id, now_iso, strip_json_fences
+from database import get_db, new_id, strip_json_fences
 from external.executor import execute_python
 
 
@@ -223,6 +223,7 @@ def build_test_harness(code: str, test_input: dict) -> str:
     This dynamically inspects the generated code to find the processor class/function
     and invoke it with the test input. Returns a harness string.
     """
+    serialized_input = json.dumps(test_input).replace("\\", "\\\\").replace('"', '\\"')
     harness = f"""
 import json
 import sys
@@ -230,7 +231,7 @@ from decimal import Decimal
 
 import generated_module as mod
 
-test_input = json.loads('''{json.dumps(test_input)}''')
+test_input = json.loads("{serialized_input}")
 
 result = None
 try:
@@ -482,33 +483,32 @@ def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
     if legacy_status != modern_status:
         return (3, "Breaking — different business outcome")
 
-    # If status/action matches, check amounts and remaining differences
-    if legacy_status == modern_status:
-        legacy_amount = norm_legacy.get("payout") or norm_legacy.get("trade_amount")
-        modern_amount = norm_modern.get("payout") or norm_modern.get("trade_amount")
+    # Status/action matches — check amounts and remaining differences
+    legacy_amount = norm_legacy.get("payout") or norm_legacy.get("trade_amount")
+    modern_amount = norm_modern.get("payout") or norm_modern.get("trade_amount")
 
-        if legacy_amount is not None and modern_amount is not None:
-            try:
-                diff = abs(Decimal(str(legacy_amount)) - Decimal(str(modern_amount)))
-                if diff == 0:
-                    return (0, "Identical")
-                elif diff <= Decimal("0.05"):
-                    return (1, "Acceptable variance — rounding ($" + str(diff) + ")")
-                elif diff <= Decimal("5.00"):
-                    return (1, "Acceptable variance — minor calculation difference ($" + str(diff) + ")")
-                else:
-                    # Status matches but amount differs significantly — Type 2 for human review
-                    return (2, "Semantic — value difference ($" + str(diff) + ")")
-            except Exception:
-                pass
+    if legacy_amount is not None and modern_amount is not None:
+        try:
+            diff = abs(Decimal(str(legacy_amount)) - Decimal(str(modern_amount)))
+            if diff == 0:
+                return (0, "Identical")
+            elif diff <= Decimal("0.05"):
+                return (1, "Acceptable variance — rounding ($" + str(diff) + ")")
+            elif diff <= Decimal("5.00"):
+                return (1, "Acceptable variance — minor calculation difference ($" + str(diff) + ")")
+            else:
+                # Status matches but amount differs significantly — Type 2 for human review
+                return (2, "Semantic — value difference ($" + str(diff) + ")")
+        except Exception:
+            pass
 
-        # If one side has an amount and the other doesn't, but status matches,
-        # treat as Type 1 (prototype tolerance — not breaking)
-        if (legacy_amount is None) != (modern_amount is None):
-            return (1, "Acceptable variance — amount field presence differs")
+    # If one side has an amount and the other doesn't, but status matches,
+    # treat as Type 1 (prototype tolerance — not breaking)
+    if (legacy_amount is None) != (modern_amount is None):
+        return (1, "Acceptable variance — amount field presence differs")
 
-        # Status matches, no amount fields or amounts match — cosmetic differences only
-        return (1, "Acceptable variance — status match, formatting differences")
+    # Status matches, no amount fields or amounts match — cosmetic differences only
+    return (1, "Acceptable variance — status match, formatting differences")
 
 
 def _match_legacy_trace(ai_input: dict, legacy_traces: list) -> dict | None:
@@ -580,11 +580,11 @@ def run_tests(run_id: str) -> list:
         db.execute(
             """INSERT INTO test_results
                (id, run_id, test_case, input_data, legacy_output, modern_output,
-                drift_type, drift_classification)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                drift_type, drift_classification, source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (test_id, run_id, tc["name"], json.dumps(tc["input"]),
              json.dumps(tc["legacy_output"]), json.dumps(modern_output),
-             drift_type, drift_class)
+             drift_type, drift_class, "legacy_trace")
         )
 
         results.append({
@@ -638,11 +638,11 @@ def run_tests(run_id: str) -> list:
         db.execute(
             """INSERT INTO test_results
                (id, run_id, test_case, input_data, legacy_output, modern_output,
-                drift_type, drift_classification)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                drift_type, drift_classification, source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (test_id, run_id, tc.get("name", "AI Test"), json.dumps(tc_input),
              json.dumps(expected), json.dumps(modern_output),
-             drift_type, drift_class)
+             drift_type, drift_class, "ai_generated")
         )
 
         results.append({
