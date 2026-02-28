@@ -92,6 +92,18 @@ def init_db():
             operator TEXT NOT NULL,
             created_at TEXT DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS ai_generated_tests (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL REFERENCES pipeline_runs(id),
+            name TEXT NOT NULL,
+            category TEXT,
+            input_data TEXT NOT NULL,
+            expected_output TEXT NOT NULL,
+            rationale TEXT,
+            source TEXT DEFAULT 'ai_generated',
+            created_at TEXT DEFAULT (datetime('now'))
+        );
     """)
     conn.commit()
     conn.close()

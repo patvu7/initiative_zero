@@ -461,7 +461,7 @@
         <div class="section-label">Drift Classification</div>
         <div class="code-viewer" style="margin-bottom:0">
           <table class="test-table">
-            <thead><tr><th>Test Case</th><th>Legacy Output</th><th>Modern Output</th><th>Classification</th></tr></thead>
+            <thead><tr><th>Test Case</th><th>Source</th><th>Legacy Output</th><th>Modern Output</th><th>Classification</th></tr></thead>
             <tbody id="test-tbody"></tbody>
           </table>
         </div>
@@ -492,117 +492,79 @@
         <h2 class="zone-title">Production Deployment</h2>
       </div>
 
-      <div class="section-label">Slice Progression</div>
-      <div class="slice-bar" id="slice-bar">
-        <div class="slice-stage completed">
-          <div class="slice-stage-name">Pure Logic</div>
-          <div class="slice-stage-status">✓ Passed</div>
-        </div>
-        <div class="slice-stage completed">
-          <div class="slice-stage-name">Boundary</div>
-          <div class="slice-stage-status">✓ Passed</div>
-        </div>
-        <div class="slice-stage active">
-          <div class="slice-stage-name">Shadow</div>
-          <div class="slice-stage-status">0.3% T2 drift</div>
-        </div>
-        <div class="slice-stage">
-          <div class="slice-stage-name">Canary</div>
-          <div class="slice-stage-status">Awaiting</div>
-        </div>
-        <div class="slice-stage">
-          <div class="slice-stage-name">Full</div>
-          <div class="slice-stage-status">—</div>
-        </div>
+      <div class="processing" id="deploy-proc" style="display:none">
+        <div class="processing-dots"><span></span><span></span><span></span></div>
+        <span class="processing-text">Loading deployment readiness data…</span>
       </div>
 
-      <div class="section-label">Coexistence Simulator — Shadow Mode</div>
-      <div class="coex-live" id="coex-live">
-        <div class="coex-controls">
-          <select id="coex-txn-selector" class="btn" style="min-width:280px;padding:8px 12px;">
-            <option value="0">Select a transaction…</option>
-          </select>
-          <button class="btn primary" onclick="runCoexSimulation()" id="btn-coex-run">▶ Process Transaction</button>
-        </div>
-
-        <div class="coex-flow" id="coex-flow" style="display:none">
-          <div class="coex-input-panel" id="coex-input-panel">
-            <div class="coex-panel-header">Incoming Transaction</div>
-            <pre id="coex-input-display" class="coex-data"></pre>
+      <div id="deploy-results" style="display:none">
+        <!-- Section 1: Deployment Readiness Summary -->
+        <div class="section-label">Deployment Readiness</div>
+        <div class="data-grid" id="readiness-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="data-card">
+            <div class="data-card-title"><span class="dot"></span>Analysis (Zone 2)</div>
+            <div class="data-row"><span class="data-label">Confidence</span><span class="data-val" id="dr-confidence">—</span></div>
+            <div class="data-row"><span class="data-label">Recommendation</span><span class="data-val" id="dr-recommendation">—</span></div>
           </div>
-
-          <div class="coex-router">
-            <div class="coex-router-label">Router</div>
-            <div class="coex-router-arrows">
-              <div class="coex-arrow left"><span class="coex-arrow-label">100% serves</span></div>
-              <div class="coex-arrow right"><span class="coex-arrow-label">100% shadows</span></div>
-            </div>
+          <div class="data-card">
+            <div class="data-card-title"><span class="dot"></span>Rules (Zone 3)</div>
+            <div class="data-row"><span class="data-label">Rules extracted</span><span class="data-val" id="dr-rules-total">—</span></div>
+            <div class="data-row"><span class="data-label">Spec approved</span><span class="data-val" id="dr-spec-approved">—</span></div>
           </div>
-
-          <div class="coex-systems">
-            <div class="coex-system legacy" id="coex-legacy-panel">
-              <div class="coex-system-header">
-                <span class="coex-system-badge legacy">■ LEGACY</span>
-                <span class="coex-system-role">SERVES TRAFFIC</span>
-              </div>
-              <div class="coex-system-status" id="coex-legacy-status">Idle</div>
-              <pre id="coex-legacy-output" class="coex-data">—</pre>
-              <div class="coex-latency" id="coex-legacy-latency"></div>
-            </div>
-            <div class="coex-system modern" id="coex-modern-panel">
-              <div class="coex-system-header">
-                <span class="coex-system-badge modern">□ MODERN</span>
-                <span class="coex-system-role">SHADOW (compare only)</span>
-              </div>
-              <div class="coex-system-status" id="coex-modern-status">Idle</div>
-              <pre id="coex-modern-output" class="coex-data">—</pre>
-              <div class="coex-latency" id="coex-modern-latency"></div>
-            </div>
+          <div class="data-card">
+            <div class="data-card-title"><span class="dot"></span>Tests (Zone 5)</div>
+            <div class="data-row"><span class="data-label">Total tests</span><span class="data-val" id="dr-tests-total">—</span></div>
+            <div class="data-row"><span class="data-label">Pass rate</span><span class="data-val" id="dr-pass-rate">—</span></div>
+            <div class="data-row"><span class="data-label">Drift summary</span><span class="data-val" id="dr-drift-summary">—</span></div>
           </div>
-
-          <div class="coex-comparator" id="coex-comparator" style="display:none">
-            <div class="coex-comparator-header">Drift Comparator</div>
-            <div class="coex-comparator-result" id="coex-comparator-result"></div>
+          <div class="data-card">
+            <div class="data-card-title"><span class="dot"></span>Decisions</div>
+            <div class="data-row"><span class="data-label">Human gates</span><span class="data-val" id="dr-decisions-count">—</span></div>
+            <div class="data-row"><span class="data-label">Latest</span><span class="data-val" id="dr-latest-decision">—</span></div>
           </div>
         </div>
 
-        <div class="coex-stats" id="coex-stats" style="display:none">
-          <div class="coex-stat">
-            <div class="coex-stat-value" id="cs-total">0</div>
-            <div class="coex-stat-label">Transactions</div>
+        <!-- Section 2: Rollout Plan -->
+        <div class="section-label">Rollout Plan</div>
+        <div class="slice-bar" id="slice-bar">
+          <div class="slice-stage">
+            <div class="slice-stage-name">Shadow</div>
+            <div class="slice-stage-status">0% live — compare only</div>
           </div>
-          <div class="coex-stat">
-            <div class="coex-stat-value good" id="cs-match">0</div>
-            <div class="coex-stat-label">Matched</div>
+          <div class="slice-stage">
+            <div class="slice-stage-name">Canary 3%</div>
+            <div class="slice-stage-status">Monitor error rates</div>
           </div>
-          <div class="coex-stat">
-            <div class="coex-stat-value warn" id="cs-drift">0</div>
-            <div class="coex-stat-label">Drift</div>
+          <div class="slice-stage">
+            <div class="slice-stage-name">Graduated 25%</div>
+            <div class="slice-stage-status">Validate latency P99</div>
           </div>
-          <div class="coex-stat">
-            <div class="coex-stat-value" id="cs-avg-delta">—</div>
-            <div class="coex-stat-label">Avg Latency Δ</div>
+          <div class="slice-stage">
+            <div class="slice-stage-name">Full Production</div>
+            <div class="slice-stage-status">Legacy decommission</div>
           </div>
         </div>
 
-        <div class="section-label" id="coex-log-label" style="display:none">Transaction Log</div>
-        <div class="code-viewer" id="coex-log-wrap" style="display:none;margin-bottom:0">
-          <table class="test-table">
-            <thead><tr><th>#</th><th>Transaction</th><th>Legacy</th><th>Modern</th><th>Drift</th><th>Latency Δ</th></tr></thead>
-            <tbody id="coex-log-tbody"></tbody>
+        <!-- Decisions Audit Trail -->
+        <div class="section-label" id="deploy-decisions-label" style="display:none">Decisions Audit Trail</div>
+        <div class="code-viewer" id="deploy-decisions-wrap" style="display:none;margin-bottom:0">
+          <table class="rules-table">
+            <thead><tr><th>Zone</th><th>Gate</th><th>Decision</th><th>Operator</th><th>Time</th></tr></thead>
+            <tbody id="deploy-decisions-tbody"></tbody>
           </table>
         </div>
-      </div>
 
-      <div class="human-gate" id="canary-gate">
-        <div class="human-gate-header">⚠ Human Gate — Canary Promotion</div>
-        <div class="human-gate-body">
-          <div class="gate-desc">14 days in shadow. 0.3% Type 2 drift (all adjudicated). Zero Type 3. Promoting routes 3% of live traffic to the modern system. This decision cannot be automated.</div>
-          <div class="gate-actions" id="canary-actions">
-            <button class="btn green" onclick="canaryDecision('promote')">Promote to Canary (3%)</button>
-            <button class="btn amber" onclick="canaryDecision('extend')">Extend Shadow +14d</button>
+        <!-- Section 3: Human Gate — Production Authorization -->
+        <div class="human-gate" id="canary-gate">
+          <div class="human-gate-header">⚠ Human Gate — Production Authorization</div>
+          <div class="human-gate-body">
+            <div class="gate-desc">Based on the pipeline results above, authorize initial shadow deployment or request extended review. This is the third and final human gate in the pipeline. This decision cannot be automated.</div>
+            <div class="gate-actions" id="canary-actions">
+              <button class="btn green" onclick="productionDecision('authorize')">Authorize Shadow Deployment</button>
+              <button class="btn amber" onclick="productionDecision('review')">Request Extended Review</button>
+            </div>
+            <div class="decision-record" id="canary-decision"></div>
           </div>
-          <div class="decision-record" id="canary-decision"></div>
         </div>
       </div>
     </div>
