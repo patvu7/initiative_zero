@@ -289,7 +289,7 @@ async function runAnalysis() {
     const conf = result.confidence_score || 0;
     const rec = result.recommendation || 'Caution';
     const rationale = m.recommendation_rationale || '';
-    const risks = m.migration_risks || [];
+    // Reuse 'risks' declared above (line 225)
     const topRisk = risks.length > 0 ? risks.sort((a,b) =>
       (a.severity === 'High' ? 0 : a.severity === 'Medium' ? 1 : 2) -
       (b.severity === 'High' ? 0 : b.severity === 'Medium' ? 1 : 2)
