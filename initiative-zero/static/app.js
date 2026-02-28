@@ -18,9 +18,7 @@ let state = {
   testResults: null
 };
 
-let coexTxnCount = 0;
 let humanDecisionCount = 0;
-let coexStats = { total: 0, matched: 0, drift: 0, latencyDeltas: [] };
 let runStartTime = null;
 let elapsedInterval = null;
 
@@ -110,6 +108,7 @@ function runZone(z) {
   if (z === 3 && !zoneRan[3]) { zoneRan[3] = true; runStrainer(); }
   if (z === 4 && !zoneRan[4]) { zoneRan[4] = true; runGeneration(); }
   if (z === 5 && !zoneRan[5]) { zoneRan[5] = true; runTesting(); }
+  if (z === 6 && !zoneRan[6]) { zoneRan[6] = true; loadDeploymentReadiness(); }
 }
 
 // ═══ ZONE 1: LEGACY ENV ═══
@@ -773,23 +772,46 @@ function toggleGenPrompt() {
 // ═══ ZONE 5: TESTING ═══
 
 /**
- * Run Zone 5 test execution against known test vectors.
- * Executes generated code in a sandbox, classifies drift between
+ * Run Zone 5 test execution.
+ * Phase 1: AI generates test cases from requirements via Claude API.
+ * Phase 2: Executes generated code in a sandbox, classifies drift between
  * legacy and modern outputs, and populates the quality gate metrics.
- * Also dynamically populates the Zone 6 transaction selector.
  * @throws {Error} If API call fails
  */
 async function runTesting() {
   updateStatus(5, 'running', '●');
-  pipelineLog('ZONE-5', 'Test execution started');
+  pipelineLog('ZONE-5', 'Test Agent generating test cases from requirements…');
+
+  // Phase 1 progress messages
+  const testGenMessages = [
+    'Test Agent generating test cases from requirements…',
+    'Analyzing business rules for test coverage…',
+    'Generating boundary condition tests…',
+    'Building error handling scenarios…',
+    'Compiling test suite…'
+  ];
+  let testMsgIndex = 0;
+  const testProgressInterval = setInterval(() => {
+    testMsgIndex = (testMsgIndex + 1) % testGenMessages.length;
+    const procText = document.querySelector('#t-proc .processing-text');
+    if (procText) procText.textContent = testGenMessages[testMsgIndex];
+  }, 2500);
+
   try {
     const results = await api('/api/testing/run', 'POST', { run_id: state.runId });
+    clearInterval(testProgressInterval);
     state.testResults = results;
+
+    // Count sources
+    const aiCount = results.filter(r => r.source === 'ai_generated').length;
+    const legacyCount = results.filter(r => r.source === 'legacy_trace').length;
 
     document.getElementById('t-proc').style.display = 'none';
     document.getElementById('t-results').style.display = 'block';
 
-    // Populate test table
+    pipelineLog('ZONE-5', results.length + ' test cases generated (' + aiCount + ' from AI, ' + legacyCount + ' from legacy traces)');
+
+    // Populate test table with source column
     const tbody = document.getElementById('test-tbody');
     tbody.innerHTML = '';
 
@@ -808,10 +830,14 @@ async function runTesting() {
       const chip = driftChips[r.drift_type] || driftChips[1];
       const legacyStr = formatOutput(r.legacy_output);
       const modernStr = formatOutput(r.modern_output);
+      const sourceChip = r.source === 'ai_generated'
+        ? '<span class="status-chip info">AI Generated</span>'
+        : '<span class="status-chip ok">Legacy Trace</span>';
       const tr = document.createElement('tr');
       if (r.drift_type >= 2) tr.classList.add('highlight');
       tr.innerHTML =
         '<td>' + escHtml(r.test_case) + '</td>' +
+        '<td>' + sourceChip + '</td>' +
         '<td>' + escHtml(legacyStr) + '</td>' +
         '<td>' + escHtml(modernStr) + '</td>' +
         '<td><span class="status-chip ' + chip.cls + '">' + chip.label + '</span></td>';
@@ -820,16 +846,6 @@ async function runTesting() {
       if (r.drift_type === 0) identicalCount++;
       if (r.drift_type >= 2) driftCount++;
       if (r.drift_type === 3) breakingCount++;
-    });
-
-    // Dynamically populate Zone 6 transaction selector based on test results
-    const selector = document.getElementById('coex-txn-selector');
-    selector.innerHTML = '';
-    results.forEach((r, i) => {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = 'Txn ' + (i + 1) + ': ' + r.test_case;
-      selector.appendChild(opt);
     });
 
     // Update quality gate metrics
@@ -867,6 +883,7 @@ async function runTesting() {
       ? driftCount + ' Type 2+ drift requires adjudication'
       : 'All tests passed — zero drift');
   } catch (e) {
+    clearInterval(testProgressInterval);
     document.getElementById('t-proc').style.display = 'none';
     toast('Testing error: ' + e.message);
   }
@@ -933,22 +950,115 @@ async function adjudicate(action) {
 // ═══ ZONE 6: PRODUCTION ═══
 
 /**
- * Handle canary promotion or shadow extension decision.
- * Records decision in the audit trail, updates slice progression bar,
- * and adjusts router labels for traffic routing visualization.
- * @param {string} action - "promote" or "extend"
+ * Load deployment readiness data from all prior zones.
+ * Populates the readiness summary grid, decisions audit trail,
+ * and enables the production authorization gate.
  */
-async function canaryDecision(action) {
+async function loadDeploymentReadiness() {
+  updateStatus(6, 'running', '●');
+  pipelineLog('ZONE-6', 'Loading deployment readiness data…');
+
+  document.getElementById('deploy-proc').style.display = '';
+  document.getElementById('deploy-results').style.display = 'none';
+
+  try {
+    const data = await api('/api/deployment/' + state.runId + '/readiness');
+
+    document.getElementById('deploy-proc').style.display = 'none';
+    document.getElementById('deploy-results').style.display = 'block';
+
+    // Analysis card
+    if (data.analysis) {
+      const confPct = Math.round((data.analysis.confidence_score || 0) * 100);
+      const confEl = document.getElementById('dr-confidence');
+      confEl.textContent = confPct + '%';
+      confEl.className = 'data-val' + (confPct >= 70 ? ' good' : confPct >= 40 ? ' warn' : ' bad');
+      document.getElementById('dr-recommendation').textContent = data.analysis.recommendation || '—';
+    }
+
+    // Rules card
+    if (data.rules) {
+      document.getElementById('dr-rules-total').textContent = data.rules.total || '0';
+      const approvedEl = document.getElementById('dr-spec-approved');
+      if (data.rules.spec_approved_by) {
+        approvedEl.textContent = '✓ ' + data.rules.spec_approved_by;
+        approvedEl.className = 'data-val good';
+      } else {
+        approvedEl.textContent = 'Pending';
+        approvedEl.className = 'data-val warn';
+      }
+    }
+
+    // Tests card
+    if (data.tests) {
+      document.getElementById('dr-tests-total').textContent = data.tests.total || '0';
+      const passable = (data.tests.identical || 0) + (data.tests.acceptable || 0);
+      const total = data.tests.total || 1;
+      const passRate = Math.round((passable / total) * 100);
+      const prEl = document.getElementById('dr-pass-rate');
+      prEl.textContent = passRate + '%';
+      prEl.className = 'data-val' + (passRate >= 80 ? ' good' : ' warn');
+      const driftParts = [];
+      if (data.tests.identical > 0) driftParts.push(data.tests.identical + ' identical');
+      if (data.tests.semantic > 0) driftParts.push(data.tests.semantic + ' semantic');
+      if (data.tests.breaking > 0) driftParts.push(data.tests.breaking + ' breaking');
+      document.getElementById('dr-drift-summary').textContent = driftParts.join(', ') || 'None';
+    }
+
+    // Decisions card
+    if (data.decisions) {
+      document.getElementById('dr-decisions-count').textContent = data.decisions.length;
+      if (data.decisions.length > 0) {
+        const latest = data.decisions[data.decisions.length - 1];
+        document.getElementById('dr-latest-decision').textContent =
+          latest.gate_name + ': ' + latest.decision;
+      }
+
+      // Populate decisions audit trail table
+      if (data.decisions.length > 0) {
+        document.getElementById('deploy-decisions-label').style.display = '';
+        document.getElementById('deploy-decisions-wrap').style.display = '';
+        const tbody = document.getElementById('deploy-decisions-tbody');
+        tbody.innerHTML = '';
+        data.decisions.forEach(d => {
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td class="rule-id">Zone ' + d.zone + '</td>' +
+            '<td>' + escHtml(d.gate_name) + '</td>' +
+            '<td><span class="status-chip ok">' + escHtml(d.decision) + '</span></td>' +
+            '<td>' + escHtml(d.operator) + '</td>' +
+            '<td style="font-family:var(--mono);font-size:10px;color:var(--tx4)">' + escHtml(d.created_at || '') + '</td>';
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    pipelineLog('ZONE-6', 'Deployment readiness loaded — awaiting authorization');
+    toast('Deployment readiness summary loaded');
+  } catch (e) {
+    document.getElementById('deploy-proc').style.display = 'none';
+    toast('Readiness load error: ' + e.message);
+  }
+}
+
+/**
+ * Handle production authorization decision.
+ * "authorize" → records decision, shows success, marks shadow stage active
+ * "review" → records decision, shows extended review record
+ * @param {string} action - "authorize" or "review"
+ */
+async function productionDecision(action) {
   const ts = new Date().toISOString().split('.')[0] + 'Z';
   const dr = document.getElementById('canary-decision');
   document.getElementById('canary-actions').style.display = 'none';
-  const stages = document.querySelectorAll('#slice-bar .slice-stage');
 
   try {
     await api('/api/production/' + state.runId + '/decide', 'POST', {
       operator: OPERATOR.name,
-      decision: action === 'promote' ? 'promote' : 'extend_shadow',
-      rationale: action === 'promote' ? 'Canary approved after shadow period' : 'Extended shadow observation'
+      decision: action,
+      rationale: action === 'authorize'
+        ? 'Shadow deployment authorized after pipeline review'
+        : 'Extended review requested — additional observation needed'
     });
   } catch (e) {
     toast('Production decision error: ' + e.message);
@@ -957,140 +1067,27 @@ async function canaryDecision(action) {
   humanDecisionCount++;
   document.getElementById('rb-decisions').textContent = humanDecisionCount;
 
-  if (action === 'promote') {
-    pipelineLog('ZONE-6', 'Canary promoted to 3% live traffic by ' + OPERATOR.name, true);
+  const stages = document.querySelectorAll('#slice-bar .slice-stage');
+
+  if (action === 'authorize') {
+    pipelineLog('ZONE-6', 'Shadow deployment authorized by ' + OPERATOR.name, true);
     dr.className = 'decision-record accepted show';
-    dr.innerHTML = '<div class="dr-header">✓ CANARY APPROVED — 3% LIVE TRAFFIC</div>' +
-      '<div class="dr-body">Modern system serving 3% of production. Legacy handles 97%. Monitoring active.</div>' +
-      '<div class="dr-ts">BA + Tech Lead · ' + ts + '</div>';
-    stages[2].classList.remove('active');
-    stages[2].classList.add('completed');
-    stages[2].querySelector('.slice-stage-status').textContent = '✓ Passed';
-    stages[3].classList.add('active');
-    stages[3].querySelector('.slice-stage-status').textContent = '● 3% live';
-    // Update router labels to reflect canary
-    const leftLabel = document.querySelector('.coex-arrow.left .coex-arrow-label');
-    const rightLabel = document.querySelector('.coex-arrow.right .coex-arrow-label');
-    if (leftLabel) leftLabel.textContent = '97% serves';
-    if (rightLabel) rightLabel.textContent = '3% live traffic';
-    updateStatus(6, 'running', '3%');
-    toast('Canary approved — 3% routing to modern');
+    dr.innerHTML = '<div class="dr-header">✓ SHADOW DEPLOYMENT AUTHORIZED</div>' +
+      '<div class="dr-body">Modern system deployed in shadow mode. All traffic mirrored for comparison. Zero live impact. Monitoring active.</div>' +
+      '<div class="dr-ts">' + OPERATOR.name + ' (' + OPERATOR.role + ') · ' + ts + '</div>';
+    if (stages.length > 0) {
+      stages[0].classList.add('active');
+      stages[0].querySelector('.slice-stage-status').textContent = '● Active';
+    }
+    updateStatus(6, 'done', '✓');
+    toast('Shadow deployment authorized');
   } else {
-    pipelineLog('ZONE-6', 'Shadow extended +14 days by ' + OPERATOR.name, true);
+    pipelineLog('ZONE-6', 'Extended review requested by ' + OPERATOR.name, true);
     dr.className = 'decision-record preserved show';
-    dr.innerHTML = '<div class="dr-header">⏳ SHADOW EXTENDED +14 DAYS</div>' +
-      '<div class="dr-body">Additional observation period. New sign-off required after expiry.</div>' +
-      '<div class="dr-ts">Tech Lead · ' + ts + '</div>';
-    toast('Shadow extended — new review in 14 days');
-  }
-}
-
-// ═══ COEXISTENCE SIMULATOR ═══
-
-/**
- * Run a single coexistence transaction simulation.
- * Executes the selected test case through both legacy and modern systems,
- * compares outputs, classifies drift, and updates aggregate stats.
- */
-async function runCoexSimulation() {
-  const selector = document.getElementById('coex-txn-selector');
-  const testIndex = parseInt(selector.value);
-  const btn = document.getElementById('btn-coex-run');
-
-  btn.disabled = true;
-  btn.textContent = 'Processing\u2026';
-
-  document.getElementById('coex-flow').style.display = 'block';
-  document.getElementById('coex-input-panel').classList.add('active');
-  document.getElementById('coex-legacy-status').textContent = 'Processing\u2026';
-  document.getElementById('coex-legacy-status').style.color = 'var(--amber-tx)';
-  document.getElementById('coex-modern-status').textContent = 'Processing\u2026';
-  document.getElementById('coex-modern-status').style.color = 'var(--amber-tx)';
-  document.getElementById('coex-legacy-output').textContent = '\u2026';
-  document.getElementById('coex-modern-output').textContent = '\u2026';
-  document.getElementById('coex-legacy-panel').classList.remove('done');
-  document.getElementById('coex-modern-panel').classList.remove('done');
-  document.getElementById('coex-comparator').style.display = 'none';
-  document.getElementById('coex-legacy-latency').textContent = '';
-  document.getElementById('coex-modern-latency').textContent = '';
-
-  try {
-    const result = await api('/api/coexistence/' + state.runId + '/simulate', 'POST', {
-      test_index: testIndex
-    });
-
-    document.getElementById('coex-input-display').textContent = JSON.stringify(result.input, null, 2);
-
-    setTimeout(() => {
-      document.getElementById('coex-modern-status').textContent = 'Complete';
-      document.getElementById('coex-modern-status').style.color = 'var(--green-tx)';
-      document.getElementById('coex-modern-output').textContent = JSON.stringify(result.modern_output, null, 2);
-      document.getElementById('coex-modern-latency').textContent = result.modern_latency_ms + 'ms (real-time)';
-      document.getElementById('coex-modern-panel').classList.add('done');
-    }, 250);
-
-    setTimeout(() => {
-      document.getElementById('coex-legacy-status').textContent = 'Complete';
-      document.getElementById('coex-legacy-status').style.color = 'var(--green-tx)';
-      document.getElementById('coex-legacy-output').textContent = JSON.stringify(result.legacy_output, null, 2);
-      document.getElementById('coex-legacy-latency').textContent = result.legacy_latency_ms + 'ms (batch)';
-      document.getElementById('coex-legacy-panel').classList.add('done');
-    }, 400);
-
-    setTimeout(() => {
-      const comp = document.getElementById('coex-comparator');
-      comp.style.display = 'block';
-      const driftChips = {
-        0: {cls: 'ok', label: 'MATCH — Type 0 Identical'},
-        1: {cls: 'info', label: 'MATCH — Type 1 Acceptable'},
-        2: {cls: 'warn', label: 'DRIFT — Type 2 Semantic'},
-        3: {cls: 'err', label: 'DIVERGENCE — Type 3 Breaking'}
-      };
-      const chip = driftChips[result.drift_type] || driftChips[1];
-      document.getElementById('coex-comparator-result').innerHTML =
-        '<span class="status-chip ' + chip.cls + '">' + chip.label + '</span>' +
-        '<span class="coex-comparator-detail">' + escHtml(result.drift_classification) + '</span>';
-
-      coexTxnCount++;
-
-      // Update aggregate stats
-      coexStats.total++;
-      if (result.drift_type <= 1) coexStats.matched++;
-      if (result.drift_type >= 2) coexStats.drift++;
-      coexStats.latencyDeltas.push(result.legacy_latency_ms - result.modern_latency_ms);
-
-      const statsEl = document.getElementById('coex-stats');
-      statsEl.style.display = 'grid';
-      document.getElementById('cs-total').textContent = coexStats.total;
-      document.getElementById('cs-match').textContent = coexStats.matched;
-      document.getElementById('cs-drift').textContent = coexStats.drift;
-      const avgDelta = Math.round(coexStats.latencyDeltas.reduce((a,b) => a+b, 0) / coexStats.latencyDeltas.length);
-      document.getElementById('cs-avg-delta').textContent = '-' + avgDelta + 'ms';
-
-      document.getElementById('coex-log-label').style.display = '';
-      document.getElementById('coex-log-wrap').style.display = '';
-      const tbody = document.getElementById('coex-log-tbody');
-      const tr = document.createElement('tr');
-      if (result.drift_type >= 2) tr.classList.add('highlight');
-      tr.innerHTML =
-        '<td>' + coexTxnCount + '</td>' +
-        '<td>' + escHtml(result.test_case) + '</td>' +
-        '<td>' + escHtml(formatOutput(result.legacy_output)) + '</td>' +
-        '<td>' + escHtml(formatOutput(result.modern_output)) + '</td>' +
-        '<td><span class="status-chip ' + chip.cls + '">' + chip.label.split('—')[0].trim() + '</span></td>' +
-        '<td style="font-family:var(--mono);font-size:10px;color:var(--green-tx)">-' +
-          (result.legacy_latency_ms - result.modern_latency_ms) + 'ms</td>';
-      tbody.insertBefore(tr, tbody.firstChild);
-
-      btn.disabled = false;
-      btn.textContent = '▶ Process Transaction';
-      toast('Transaction processed — ' + chip.label.split('—')[0].trim());
-    }, 700);
-
-  } catch (e) {
-    toast('Simulation error: ' + e.message);
-    btn.disabled = false;
-    btn.textContent = '▶ Process Transaction';
+    dr.innerHTML = '<div class="dr-header">⏳ EXTENDED REVIEW REQUESTED</div>' +
+      '<div class="dr-body">Additional review period. Pipeline results preserved for re-evaluation.</div>' +
+      '<div class="dr-ts">' + OPERATOR.name + ' (' + OPERATOR.role + ') · ' + ts + '</div>';
+    toast('Extended review requested');
   }
 }
 

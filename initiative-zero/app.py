@@ -286,6 +286,17 @@ def api_get_test_results(run_id):
     except Exception as e:
         return api_error(f"Failed to get test results: {e}", zone=5, code="TEST_RESULTS_GET_FAILED")
 
+@app.route('/api/testing/<run_id>/generated-tests')
+def api_get_generated_tests(run_id):
+    """Return AI-generated test cases for display in the UI."""
+    try:
+        db = get_db()
+        rows = db.execute("SELECT * FROM ai_generated_tests WHERE run_id = ? ORDER BY created_at", (run_id,)).fetchall()
+        db.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return api_error(f"Failed to get generated tests: {e}", zone=5, code="GENERATED_TESTS_GET_FAILED")
+
 @app.route('/api/testing/<run_id>/adjudicate', methods=['POST'])
 def api_adjudicate(run_id):
     try:
@@ -331,8 +342,8 @@ def api_production_decision(run_id):
             (decision_id, run_id, data["decision"], data.get("rationale", ""), data["operator"])
         )
 
-        if data["decision"] == "promote":
-            db.execute("UPDATE pipeline_runs SET status = 'canary' WHERE id = ?", (run_id,))
+        if data["decision"] == "authorize":
+            db.execute("UPDATE pipeline_runs SET status = 'shadow' WHERE id = ?", (run_id,))
 
         db.commit()
         db.close()
@@ -341,62 +352,71 @@ def api_production_decision(run_id):
     except Exception as e:
         return api_error(f"Production decision failed: {e}", zone=6, code="PRODUCTION_DECISION_FAILED")
 
-# ─── Zone 6: Coexistence Simulation ───
-@app.route('/api/coexistence/<run_id>/simulate', methods=['POST'])
-def api_coexistence_simulate(run_id):
-    """Simulate coexistence: run one transaction through both legacy and modern."""
+@app.route('/api/deployment/<run_id>/readiness')
+def api_deployment_readiness(run_id):
+    """Aggregate deployment readiness data from all prior zones."""
     try:
-        data = request.json
-        if not data:
-            return api_error("Request body must be JSON", zone=6, code="INVALID_REQUEST", status=400)
-        test_index = data.get("test_index", 0)
-
         db = get_db()
-        gen_row = db.execute("SELECT code FROM generated_code WHERE run_id = ?", (run_id,)).fetchone()
-        run_row = db.execute("SELECT source_file FROM pipeline_runs WHERE id = ?", (run_id,)).fetchone()
+
+        # Analysis confidence + recommendation (Zone 2)
+        analysis_row = db.execute(
+            "SELECT confidence_score, recommendation, metrics FROM analyses WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        analysis = None
+        if analysis_row:
+            analysis = {
+                "confidence_score": analysis_row["confidence_score"],
+                "recommendation": analysis_row["recommendation"],
+            }
+
+        # Rule count + validation status (Zone 3)
+        rules_rows = db.execute(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN validated_by IS NOT NULL THEN 1 ELSE 0 END) as validated FROM business_rules WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        req_row = db.execute(
+            "SELECT approved_by FROM requirements_docs WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        rules = {
+            "total": rules_rows["total"] if rules_rows else 0,
+            "validated": rules_rows["validated"] if rules_rows else 0,
+            "spec_approved_by": req_row["approved_by"] if req_row else None,
+        }
+
+        # Test pass rate + drift counts (Zone 5)
+        test_rows = db.execute(
+            """SELECT COUNT(*) as total,
+                      SUM(CASE WHEN drift_type = 0 THEN 1 ELSE 0 END) as identical,
+                      SUM(CASE WHEN drift_type = 1 THEN 1 ELSE 0 END) as acceptable,
+                      SUM(CASE WHEN drift_type = 2 THEN 1 ELSE 0 END) as semantic,
+                      SUM(CASE WHEN drift_type = 3 THEN 1 ELSE 0 END) as breaking,
+                      SUM(CASE WHEN adjudication_decision IS NOT NULL THEN 1 ELSE 0 END) as adjudicated
+               FROM test_results WHERE run_id = ?""", (run_id,)
+        ).fetchone()
+        tests = {
+            "total": test_rows["total"] if test_rows else 0,
+            "identical": test_rows["identical"] if test_rows else 0,
+            "acceptable": test_rows["acceptable"] if test_rows else 0,
+            "semantic": test_rows["semantic"] if test_rows else 0,
+            "breaking": test_rows["breaking"] if test_rows else 0,
+            "adjudicated": test_rows["adjudicated"] if test_rows else 0,
+        }
+
+        # All decisions (all zones)
+        decision_rows = db.execute(
+            "SELECT * FROM decisions WHERE run_id = ? ORDER BY created_at", (run_id,)
+        ).fetchall()
+        decisions = [dict(d) for d in decision_rows]
+
         db.close()
 
-        if not gen_row or not run_row:
-            return api_error("Run data not found", zone=6, code="RUN_DATA_NOT_FOUND", status=404)
-
-        from external.tester import KNOWN_TEST_VECTORS, build_test_harness, classify_drift
-        from external.executor import execute_python
-
-        source_key = run_row["source_file"].replace(".cbl", "")
-        test_cases = KNOWN_TEST_VECTORS.get(source_key, {}).get("test_cases", [])
-
-        if not isinstance(test_index, int) or test_index < 0 or test_index >= len(test_cases):
-            return api_error("Test index out of range", zone=6, code="TEST_INDEX_OUT_OF_RANGE", status=400)
-
-        tc = test_cases[test_index]
-        harness = build_test_harness(gen_row["code"], tc["input"])
-        exec_result = execute_python(gen_row["code"], harness)
-
-        if exec_result["success"] and isinstance(exec_result["output"], dict):
-            modern_output = exec_result["output"]
-        else:
-            modern_output = {"error": exec_result.get("stderr", "Execution failed")}
-
-        drift_type, drift_class = classify_drift(tc["legacy_output"], modern_output)
-
-        # Simulated latencies for demo. In production, these are measured
-        # from actual system execution. Legacy batch typically 200-500ms;
-        # modern real-time typically 5-30ms.
-        SIMULATED_LEGACY_LATENCY_MS = 340
-        SIMULATED_MODERN_LATENCY_MS = 12
-
         return jsonify({
-            "test_case": tc["name"],
-            "input": tc["input"],
-            "legacy_output": tc["legacy_output"],
-            "modern_output": modern_output,
-            "drift_type": drift_type,
-            "drift_classification": drift_class,
-            "legacy_latency_ms": SIMULATED_LEGACY_LATENCY_MS,
-            "modern_latency_ms": SIMULATED_MODERN_LATENCY_MS
+            "analysis": analysis,
+            "rules": rules,
+            "tests": tests,
+            "decisions": decisions,
         })
     except Exception as e:
-        return api_error(f"Simulation failed: {e}", zone=6, code="ZONE_6_SIMULATION_FAILED")
+        return api_error(f"Failed to get deployment readiness: {e}", zone=6, code="READINESS_GET_FAILED")
 
 # ─── Cross-cutting: Audit Trail ───
 @app.route('/api/runs/<run_id>/decisions')
