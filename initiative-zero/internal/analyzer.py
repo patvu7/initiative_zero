@@ -17,8 +17,17 @@ def _get_client():
 
 ANALYSIS_SYSTEM_PROMPT = """You are a legacy code analysis agent for a financial services
 code modernization pipeline. You analyze source code and return structured assessments.
-Always return valid JSON. Be conservative with confidence scores. Estimate where exact
-data isn't available but flag estimates clearly."""
+Always return valid JSON. Estimate where exact data isn't available but flag estimates clearly.
+
+CONFIDENCE SCORING CALIBRATION:
+Score each rubric dimension on a 0.0-1.0 scale using these anchors:
+- 0.80-1.00: Code is well-documented, clearly structured, with explicit business rule annotations and named constants
+- 0.65-0.79: Code is reasonably clear with some documentation; business rules are identifiable
+- 0.50-0.64: Code has significant ambiguity, sparse documentation, or tangled logic
+- Below 0.50: Code is obfuscated, undocumented, or severely degraded
+Well-maintained legacy code with clear paragraph headers, business rule comments (e.g. BR:),
+and explicit threshold constants should score in the 0.70-0.85 range. Do not deflate scores
+for well-structured code — rate what you actually observe."""
 
 ANALYSIS_USER_PROMPT = """Analyze this {language} source code and return a JSON object
 with exactly this structure. No markdown fences, no explanation — just the JSON object.
@@ -73,27 +82,27 @@ with exactly this structure. No markdown fences, no explanation — just the JSO
     "code_clarity": {{
       "score": <float 0.0-1.0>,
       "weight": 0.20,
-      "rationale": "how readable and well-structured the code is"
+      "rationale": "how readable and well-structured the code is — score 0.70+ for clear section headers, meaningful paragraph names, and inline BR comments"
     }},
     "business_rule_extractability": {{
       "score": <float 0.0-1.0>,
       "weight": 0.25,
-      "rationale": "how clearly business rules can be identified and isolated"
+      "rationale": "how clearly business rules can be identified — score 0.75+ if rules are annotated with comments or clearly separated into named paragraphs with explicit thresholds"
     }},
     "test_coverage_confidence": {{
       "score": <float 0.0-1.0>,
       "weight": 0.20,
-      "rationale": "confidence in verifying migration correctness"
+      "rationale": "confidence in verifying migration correctness — score 0.65+ if behavior is deterministic with clearly defined inputs, outputs, and thresholds"
     }},
     "dependency_isolation": {{
       "score": <float 0.0-1.0>,
       "weight": 0.15,
-      "rationale": "how isolated this module is from upstream/downstream systems"
+      "rationale": "how isolated this module is — score 0.65+ if dependencies are documented via COPY statements or header comments and interface boundaries are clear"
     }},
     "migration_complexity": {{
       "score": <float 0.0-1.0>,
       "weight": 0.20,
-      "rationale": "inverse complexity — higher means simpler migration"
+      "rationale": "inverse complexity — higher means simpler migration — score 0.65+ if logic is procedural with clear control flow, explicit thresholds, and no recursive or deeply nested structures"
     }}
   }},
   "confidence_score": <float between 0.0 and 1.0 — MUST equal weighted sum of rubric scores>,
