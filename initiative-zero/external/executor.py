@@ -52,7 +52,9 @@ def execute_python(code: str, test_harness: str) -> dict:
             except json.JSONDecodeError:
                 return {"success": True, "output": result.stdout.strip(), "stderr": result.stderr}
         else:
-            return {"success": False, "output": result.stdout, "stderr": result.stderr}
+            stderr_lines = result.stderr.strip().split('\n')
+            last_error = stderr_lines[-1] if stderr_lines else "Unknown error"
+            return {"success": False, "output": result.stdout, "stderr": result.stderr, "error_summary": last_error}
 
     except subprocess.TimeoutExpired:
         return {"success": False, "output": "", "stderr": "Execution timed out"}

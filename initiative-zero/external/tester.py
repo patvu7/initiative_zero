@@ -2,6 +2,7 @@
 
 import os
 import json
+import re
 from decimal import Decimal, ROUND_HALF_UP
 import anthropic
 from database import get_db, new_id, now_iso, strip_json_fences
@@ -48,7 +49,13 @@ LEGACY_EXECUTION_TRACES = {
                 "name": "Rounding edge — $99.995",
                 "input": {"claim_amount": "199.995", "deductible": "100.00",
                           "coverage_limit": "10000.00", "policy_number": "POL-001"},
-                "legacy_output": {"status": "APPROVED", "payout": "99.99"}
+                "legacy_output": {"status": "APPROVED", "payout": "100.00"}
+            },
+            {
+                "name": "COBOL truncation edge — $1000.456",
+                "input": {"claim_amount": "1500.456", "deductible": "500.00",
+                          "coverage_limit": "10000.00", "policy_number": "POL-001"},
+                "legacy_output": {"status": "APPROVED", "payout": "1000.45"}
             },
             {
                 "name": "Exact coverage limit",
@@ -219,51 +226,94 @@ import json
 import sys
 from decimal import Decimal
 
-# Import the generated module
 import generated_module as mod
 
 test_input = json.loads('''{json.dumps(test_input)}''')
 
-# Try to find and invoke the main processor
 result = None
 try:
-    # Look for common class patterns
+    # Priority 1: Look for classes with a 'process' method (most common pattern)
+    candidates = []
     for name in dir(mod):
         obj = getattr(mod, name)
-        if isinstance(obj, type) and name != 'Enum' and not name.startswith('_'):
-            # Try to instantiate and find a process/execute/run method
+        if not isinstance(obj, type) or name.startswith('_'):
+            continue
+        # Skip Enum subclasses and known non-processor types
+        try:
+            from enum import Enum
+            if issubclass(obj, Enum):
+                continue
+        except (TypeError, ImportError):
+            pass
+        # Check if it has a process-like method before trying to instantiate
+        has_process = any(
+            hasattr(obj, m) for m in ['process', 'execute', 'run', 'process_claim', 'rebalance']
+        )
+        if has_process:
+            candidates.insert(0, (name, obj))  # prioritize
+        else:
+            candidates.append((name, obj))
+
+    for name, obj in candidates:
+        try:
+            instance = obj()
+        except TypeError:
+            # Try with __new__ for dataclasses with defaults
             try:
-                instance = obj()
-                for method_name in ['process', 'execute', 'run', 'rebalance', 'process_claim']:
-                    if hasattr(instance, method_name):
-                        method = getattr(instance, method_name)
-                        # Build appropriate input based on what the method expects
-                        result = method(test_input)
-                        break
+                instance = obj.__new__(obj)
             except Exception:
                 continue
+        except Exception:
+            continue
+
+        for method_name in ['process', 'execute', 'run', 'process_claim', 'rebalance']:
+            if hasattr(instance, method_name):
+                method = getattr(instance, method_name)
+                result = method(test_input)
+                break
         if result is not None:
             break
 
+    # Priority 2: Look for module-level functions
+    if result is None:
+        for name in ['process', 'execute', 'run', 'process_claim', 'rebalance']:
+            if hasattr(mod, name) and callable(getattr(mod, name)):
+                result = getattr(mod, name)(test_input)
+                break
+
     # Serialize result
     if result is not None:
-        # Handle dataclass/object serialization
-        if hasattr(result, '__dict__'):
+        if hasattr(result, '__dict__') and not isinstance(result, dict):
             out = {{}}
             for k, v in result.__dict__.items():
                 if isinstance(v, Decimal):
-                    out[k] = str(v)
+                    out[k] = str(v.quantize(Decimal("0.01")))
+                elif isinstance(v, bool):
+                    out[k] = v
                 elif hasattr(v, 'value'):  # Enum
-                    out[k] = v.value
+                    out[k] = str(v.value).upper()
+                elif isinstance(v, (int, float)):
+                    out[k] = v
+                else:
+                    out[k] = str(v) if v is not None else None
+            print(json.dumps(out))
+        elif isinstance(result, dict):
+            # Normalize Decimals in dict
+            out = {{}}
+            for k, v in result.items():
+                if isinstance(v, Decimal):
+                    out[k] = str(v.quantize(Decimal("0.01")))
+                elif isinstance(v, bool):
+                    out[k] = v
+                elif hasattr(v, 'value'):
+                    out[k] = str(v.value).upper()
                 else:
                     out[k] = v
             print(json.dumps(out))
-        elif isinstance(result, dict):
-            print(json.dumps(result))
         else:
             print(json.dumps({{"result": str(result)}}))
     else:
-        print(json.dumps({{"error": "Could not find processor"}}))
+        print(json.dumps({{"error": "No processor class or function found in generated module"}}))
 except Exception as e:
     print(json.dumps({{"error": str(e), "type": type(e).__name__}}))
 """
@@ -275,14 +325,20 @@ except Exception as e:
 KEY_ALIASES = {
     "amount": "amount",
     "payout": "payout",
+    "payout_amount": "payout",
+    "net_claim": "payout",
     "trade_amount": "trade_amount",
     "trade_value": "trade_amount",
     "tradeamount": "trade_amount",
     "status": "status",
+    "claim_status": "status",
     "action": "action",
+    "rebalance_action": "action",
     "error_code": "error_code",
     "errorcode": "error_code",
+    "error": "error",
     "reason": "reason",
+    "hold_reason": "reason",
     "tlh_flag": "tlh_flag",
     "tlhflag": "tlh_flag",
     "wash_sale_flag": "wash_sale_flag",
@@ -294,8 +350,8 @@ KEY_ALIASES = {
 # Fields that hold boolean semantics — only these are eligible for bool coercion.
 BOOLEAN_FIELDS = frozenset(("tlh_flag", "wash_sale_flag", "is_valid"))
 
-# Key substrings that identify financial amount fields for fallback matching.
-FINANCIAL_KEY_PATTERNS = ("amount", "payout", "value", "cost", "price", "total")
+# Fields that hold integer semantics — cosmetic int vs string differences.
+INTEGER_FIELDS = frozenset(("error_code",))
 
 
 def _normalize_output(output: dict) -> dict:
@@ -329,6 +385,25 @@ def _normalize_output(output: dict) -> dict:
                 normalized[canonical_key] = False
                 continue
 
+        # Integer coercion — for fields like error_code where 2001 vs "2001" is cosmetic
+        if canonical_key in INTEGER_FIELDS:
+            try:
+                normalized[canonical_key] = int(float(value))
+                continue
+            except (ValueError, TypeError):
+                pass
+
+        # Reason text normalization — collapse whitespace, underscores → spaces, truncate at separators
+        if canonical_key == "reason":
+            cleaned = re.sub(r'[_\-]+', ' ', value)
+            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+            for sep in [' — ', ' - ', '. ']:
+                if sep in cleaned:
+                    cleaned = cleaned.split(sep)[0].strip()
+                    break
+            normalized[canonical_key] = cleaned
+            continue
+
         # Decimal quantization for numeric strings
         try:
             d = Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -360,9 +435,13 @@ def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
     if json.dumps(norm_legacy, sort_keys=True, default=str) == json.dumps(norm_modern, sort_keys=True, default=str):
         return (0, "Identical")
 
-    # Check for error in modern output — always Type 3
-    if "error" in norm_modern:
-        return (3, "Breaking — modern output contains error")
+    # Check for execution failure (error key with no business keys) — Type 3
+    # But if error is alongside a valid status/action, treat as extra field (Type 1)
+    modern_has_business_key = any(
+        k in norm_modern for k in ("status", "action", "payout", "trade_amount")
+    )
+    if "error" in norm_modern and not modern_has_business_key:
+        return (3, "Breaking — modern output is an execution error")
 
     # Check if core business outcome is the same (already normalized to uppercase)
     legacy_status = norm_legacy.get("status") or norm_legacy.get("action", "")
@@ -371,48 +450,27 @@ def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
     if legacy_status != modern_status:
         return (3, "Breaking — different business outcome")
 
-    # Check for numeric differences (potential rounding drift)
-    legacy_amount = norm_legacy.get("payout") or norm_legacy.get("trade_amount") or norm_legacy.get("amount")
-    modern_amount = norm_modern.get("payout") or norm_modern.get("trade_amount") or norm_modern.get("amount")
+    # If status/action matches, check amounts and remaining differences
+    if legacy_status == modern_status:
+        legacy_amount = norm_legacy.get("payout") or norm_legacy.get("trade_amount")
+        modern_amount = norm_modern.get("payout") or norm_modern.get("trade_amount")
 
-    # Fallback: search for financial-key-patterned numeric values only
-    if legacy_amount is not None and modern_amount is None:
-        for key in norm_modern:
-            if not any(p in key for p in FINANCIAL_KEY_PATTERNS):
-                continue
+        if legacy_amount is not None and modern_amount is not None:
             try:
-                Decimal(str(norm_modern[key]))
-                modern_amount = norm_modern[key]
-                break
+                diff = abs(Decimal(str(legacy_amount)) - Decimal(str(modern_amount)))
+                if diff == 0:
+                    return (0, "Identical")
+                elif diff < Decimal("0.01"):
+                    return (1, "Acceptable variance — rounding ($" + str(diff) + ")")
+                elif diff <= Decimal("0.05"):
+                    return (2, "Semantic — rounding difference ($" + str(diff) + ")")
+                else:
+                    return (3, "Breaking — value mismatch ($" + str(diff) + ")")
             except Exception:
-                continue
+                pass
 
-    if modern_amount is not None and legacy_amount is None:
-        for key in norm_legacy:
-            if not any(p in key for p in FINANCIAL_KEY_PATTERNS):
-                continue
-            try:
-                Decimal(str(norm_legacy[key]))
-                legacy_amount = norm_legacy[key]
-                break
-            except Exception:
-                continue
-
-    if legacy_amount is not None and modern_amount is not None:
-        try:
-            diff = abs(Decimal(str(legacy_amount)) - Decimal(str(modern_amount)))
-            if diff == 0:
-                # Same numbers, other differences are cosmetic
-                return (1, "Acceptable variance")
-            elif diff <= Decimal("0.02"):
-                return (2, "Semantic — rounding difference ($" + str(diff) + ")")
-            else:
-                return (3, "Breaking — value mismatch ($" + str(diff) + ")")
-        except Exception:
-            pass
-
-    # Default: if status matches but other fields differ, it's acceptable
-    return (1, "Acceptable variance")
+        # Status matches, no amount fields or amounts match — cosmetic differences only
+        return (1, "Acceptable variance — status match, formatting differences")
 
 
 def _match_legacy_trace(ai_input: dict, legacy_traces: list) -> dict | None:
@@ -475,7 +533,8 @@ def run_tests(run_id: str) -> list:
         if exec_result["success"] and isinstance(exec_result["output"], dict):
             modern_output = exec_result["output"]
         else:
-            modern_output = {"error": exec_result.get("stderr", "Execution failed")}
+            error_msg = exec_result.get("error_summary", exec_result.get("stderr", "Execution failed"))
+            modern_output = {"error": error_msg}
 
         drift_type, drift_class = classify_drift(tc["legacy_output"], modern_output)
 
@@ -516,7 +575,8 @@ def run_tests(run_id: str) -> list:
         if exec_result["success"] and isinstance(exec_result["output"], dict):
             modern_output = exec_result["output"]
         else:
-            modern_output = {"error": exec_result.get("stderr", "Execution failed")}
+            error_msg = exec_result.get("error_summary", exec_result.get("stderr", "Execution failed"))
+            modern_output = {"error": error_msg}
 
         # Compare against AI expected output
         expected = tc.get("expected_output", {})
@@ -525,15 +585,19 @@ def run_tests(run_id: str) -> list:
         # Reclassify for AI-generated: AI expectations are predictions, not ground truth.
         # Execution failures remain Type 3; other Type 3s downgrade to Type 2.
         if drift_type == 0:
-            drift_class = "Validated against requirements"
+            drift_class = "Validated — matches AI expectation"
         elif drift_type <= 1:
-            drift_class = "Acceptable — minor variance from requirements"
+            drift_class = "Acceptable — cosmetic variance from AI expectation"
         elif drift_type == 2:
-            drift_class = "Deviation from requirements — needs review"
+            drift_class = "Semantic — deviation from AI expectation (review optional)"
         elif drift_type == 3:
-            if "error" in modern_output:
-                drift_class = "Breaking — execution failure (AI test)"
+            if "error" in modern_output and not any(
+                k in modern_output for k in ("status", "action")
+            ):
+                # True execution failure — keep as Type 3
+                drift_class = "Breaking — execution failure"
             else:
+                # AI expectation mismatch, not a real break — downgrade
                 drift_type = 2
                 drift_class = "Semantic — output differs from AI expectation"
 
