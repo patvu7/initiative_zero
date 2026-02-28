@@ -94,6 +94,8 @@ def run_generation(run_id: str, requirements_doc_id: str, target_language: str =
     # Build the prompt — store it for auditability
     full_prompt = GENERATION_USER_PROMPT.format(requirements_text=requirements_text)
 
+    # TODO(prod): Implement retry with exponential backoff for transient API failures
+    # TODO(prod): Cache generation results by content_hash to avoid redundant API calls
     try:
         client = _get_client()
         response = client.messages.create(

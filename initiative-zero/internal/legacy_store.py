@@ -1,3 +1,12 @@
+"""Zone 1: Legacy file access.
+
+Sample COBOL files are simplified (50-100 LOC) for demo purposes.
+Production legacy systems are typically 10,000-500,000+ LOC with
+cross-module dependencies, copybooks, and JCL orchestration.
+The pipeline architecture handles arbitrary scale — Zone 2 analysis
+and Zone 3 extraction operate on AST-level chunks, not whole files.
+"""
+
 import os
 import pathlib
 

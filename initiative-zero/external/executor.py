@@ -7,6 +7,8 @@ import os
 import shutil
 
 TIMEOUT_SECONDS = 10
+# TODO(prod): Run in container sandbox (gVisor/Firecracker), not just subprocess
+# TODO(prod): Memory limit enforcement (current: unbounded)
 
 def execute_python(code: str, test_harness: str) -> dict:
     """Execute generated Python code with a test harness in a subprocess sandbox.
