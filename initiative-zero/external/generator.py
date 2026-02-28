@@ -86,6 +86,16 @@ IMPLEMENTATION CHECKLIST:
 9. Return values must use the EXACT key names from the OUTPUT FORMAT CONTRACT (e.g. "payout" not "amount", "trade_amount" not "trade_value")
 10. Boolean fields (tlh_flag, wash_sale_flag) must be Python bool True/False, never strings "true"/"false"
 
+CRITICAL — COMMON MISTAKES TO AVOID:
+- Do NOT return negative payout values — if (claim_amount - deductible) is negative, return payout "0.00"
+- Do NOT use Decimal's default ROUND_HALF_EVEN — always use ROUND_HALF_UP for financial calculations
+- Do NOT forget to convert all Decimal results to strings in the return dict
+- Do NOT use key names like "payout_amount", "claim_status", "trade_value" — use EXACTLY: "payout", "status", "trade_amount"
+- Do NOT include markdown fences in the output — return raw Python code only
+- When claim_amount exceeds coverage_limit, return DENIED with error_code 1001 — do NOT cap the amount
+- Empty/blank policy_number must return DENIED with error_code 1002
+- For HOLD actions, always include a "reason" field explaining why
+
 Return ONLY the Python code. No markdown fences, no explanations."""
 
 
@@ -119,7 +129,7 @@ def run_generation(run_id: str, requirements_doc_id: str, target_language: str =
         client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=8192,
+            max_tokens=12000,
             system=GENERATION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": full_prompt}]
         )
@@ -131,6 +141,27 @@ def run_generation(run_id: str, requirements_doc_id: str, target_language: str =
         return {"error": f"Claude API call failed: {e}"}
 
     generated_code = strip_json_fences(response.content[0].text)
+
+    # Post-generation validation: check for required structural elements
+    validation_issues = _validate_generated_code(generated_code)
+    if validation_issues:
+        # Attempt one retry with explicit fix instructions
+        fix_prompt = (
+            "The previously generated code has structural issues:\n"
+            + "\n".join(f"- {issue}" for issue in validation_issues)
+            + "\n\nPlease regenerate the COMPLETE module fixing all issues above.\n"
+            + full_prompt
+        )
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=12000,
+                system=GENERATION_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": fix_prompt}]
+            )
+            generated_code = strip_json_fences(response.content[0].text)
+        except Exception:
+            pass  # Use original code if retry fails
 
     # Store in DB — including the exact prompt for audit trail
     gen_id = new_id()
@@ -151,3 +182,33 @@ def run_generation(run_id: str, requirements_doc_id: str, target_language: str =
         "language": target_language,
         "generation_prompt": full_prompt  # Exposed to UI to PROVE no source code was included
     }
+
+
+def _validate_generated_code(code: str) -> list:
+    """Validate structural requirements of generated code. Returns list of issues."""
+    import re
+    issues = []
+
+    # Check for class with process method
+    if not re.search(r'class\s+\w+', code):
+        issues.append("No class definition found — must have a top-level class")
+
+    if not re.search(r'def\s+process\s*\(\s*self', code):
+        issues.append("No process(self, ...) method found — must have process(self, input_data: dict) -> dict")
+
+    # Check for Decimal import
+    if 'from decimal import' not in code and 'import decimal' not in code:
+        issues.append("No Decimal import — all financial calculations must use Decimal")
+
+    # Check for common key name mistakes
+    bad_keys = []
+    if '"payout_amount"' in code or "'payout_amount'" in code:
+        bad_keys.append('payout_amount (should be "payout")')
+    if '"claim_status"' in code or "'claim_status'" in code:
+        bad_keys.append('claim_status (should be "status")')
+    if '"trade_value"' in code or "'trade_value'" in code:
+        bad_keys.append('trade_value (should be "trade_amount")')
+    if bad_keys:
+        issues.append(f"Non-canonical output keys found: {', '.join(bad_keys)}")
+
+    return issues

@@ -216,6 +216,19 @@ def build_enrichment_section(metrics: dict) -> str:
                 lines.append(f"- Preserve: {item}")
             sections.append("\n".join(lines))
 
+    # --- OUTPUT FORMAT REMINDER ---
+    # Always include this to reinforce correct key naming
+    sections.append(
+        "OUTPUT FORMAT REMINDER\n"
+        "The generated code's process() method must return a dict with these exact keys:\n"
+        "- For claims systems: 'status' (str), 'payout' (str), 'error_code' (int)\n"
+        "- For trade systems: 'action' (str), 'trade_amount' (str), 'reason' (str), 'tlh_flag' (bool), 'error_code' (int)\n"
+        "- All financial values as strings with 2 decimal places\n"
+        "- Boolean fields as Python bool (True/False)\n"
+        "- On error: {'error': str, 'error_code': int}\n"
+        "- Do NOT use alternative key names (payout_amount, claim_status, trade_value)"
+    )
+
     # Only return enrichment if we have content beyond the header
     if len(sections) <= 1:
         return ""
@@ -232,7 +245,7 @@ def run_extraction(run_id: str, source_code: str, language: str = "COBOL") -> di
         client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4000,
+            max_tokens=8000,
             system=EXTRACTION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}]
         )

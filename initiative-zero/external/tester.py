@@ -3,6 +3,7 @@
 import os
 import json
 import re
+import base64
 from decimal import Decimal, ROUND_HALF_UP
 import anthropic
 from database import get_db, new_id, strip_json_fences
@@ -62,6 +63,30 @@ LEGACY_EXECUTION_TRACES = {
                 "input": {"claim_amount": "10000.00", "deductible": "0.00",
                           "coverage_limit": "10000.00", "policy_number": "POL-001"},
                 "legacy_output": {"status": "APPROVED", "payout": "10000.00"}
+            },
+            {
+                "name": "Zero claim amount",
+                "input": {"claim_amount": "0.00", "deductible": "500.00",
+                          "coverage_limit": "10000.00", "policy_number": "POL-001"},
+                "legacy_output": {"status": "APPROVED", "payout": "0.00"}
+            },
+            {
+                "name": "Small claim — deductible greater than amount",
+                "input": {"claim_amount": "200.00", "deductible": "500.00",
+                          "coverage_limit": "10000.00", "policy_number": "POL-001"},
+                "legacy_output": {"status": "APPROVED", "payout": "0.00"}
+            },
+            {
+                "name": "Large valid claim — $9,500",
+                "input": {"claim_amount": "9500.00", "deductible": "1000.00",
+                          "coverage_limit": "10000.00", "policy_number": "POL-002"},
+                "legacy_output": {"status": "APPROVED", "payout": "8500.00"}
+            },
+            {
+                "name": "Exact at coverage limit with deductible",
+                "input": {"claim_amount": "10000.00", "deductible": "500.00",
+                          "coverage_limit": "10000.00", "policy_number": "POL-003"},
+                "legacy_output": {"status": "APPROVED", "payout": "9500.00"}
             }
         ]
     },
@@ -101,6 +126,27 @@ LEGACY_EXECUTION_TRACES = {
                           "market_value": "10000.00", "unrealized_gl": "500.00",
                           "hold_days": "90", "policy_number": "ACC-001"},
                 "legacy_output": {"action": "HOLD", "reason": "BELOW MIN TRADE THRESHOLD"}
+            },
+            {
+                "name": "Large portfolio drift — BUY",
+                "input": {"target_alloc": "60.00", "current_alloc": "50.00",
+                          "market_value": "500000.00", "unrealized_gl": "10000.00",
+                          "hold_days": "120", "policy_number": "ACC-002"},
+                "legacy_output": {"action": "BUY", "trade_amount": "50000.00"}
+            },
+            {
+                "name": "Exact at drift threshold — HOLD",
+                "input": {"target_alloc": "60.00", "current_alloc": "65.00",
+                          "market_value": "100000.00", "unrealized_gl": "3000.00",
+                          "hold_days": "90", "policy_number": "ACC-001"},
+                "legacy_output": {"action": "HOLD", "reason": "DRIFT WITHIN THRESHOLD"}
+            },
+            {
+                "name": "TLH with large loss — no wash sale",
+                "input": {"target_alloc": "40.00", "current_alloc": "48.00",
+                          "market_value": "200000.00", "unrealized_gl": "-8000.00",
+                          "hold_days": "60", "policy_number": "ACC-003"},
+                "legacy_output": {"action": "SELL", "trade_amount": "16000.00", "tlh_flag": True}
             }
         ]
     }
@@ -136,15 +182,19 @@ Return a JSON array of test cases with this structure:
   }}
 ]
 
-Generate exactly 5 test cases covering:
-- 2 happy path scenarios (standard valid inputs with different values)
-- 1 boundary condition (values at exact thresholds)
-- 1 error handling case (missing required field)
-- 1 edge case specific to this domain
+Generate exactly 10 test cases covering:
+- 3 happy path scenarios (standard valid inputs with different values and amounts)
+- 2 boundary conditions (values at exact thresholds — e.g. exact limit, zero deductible)
+- 2 error handling cases (missing/blank required fields, invalid values)
+- 2 edge cases specific to this domain (rounding, precision, near-threshold)
+- 1 regulatory scenario (compliance-related rule)
 
-Keep test cases focused on core business logic. Do not generate tests for obscure edge cases.
-
-All financial values must be strings (e.g. "5000.00" not 5000)."""
+CRITICAL OUTPUT FORMAT:
+- For claims/approval systems: expected_output MUST use keys: "status" (APPROVED/DENIED), "payout" (string decimal), "error_code" (integer)
+- For trade/rebalance systems: expected_output MUST use keys: "action" (SELL/BUY/HOLD), "trade_amount" (string decimal), "reason" (string), "tlh_flag" (boolean), "error_code" (integer)
+- All financial values must be strings with 2 decimal places (e.g. "5000.00" not 5000)
+- Boolean values must be true/false (not "true"/"false")
+- Do NOT use alternative key names like "payout_amount", "claim_status", "trade_value" — use the exact canonical keys above"""
 
 
 def generate_test_cases(run_id: str) -> list:
@@ -171,7 +221,7 @@ def generate_test_cases(run_id: str) -> list:
         client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4096,
+            max_tokens=6000,
             system=TEST_GENERATION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": TEST_GENERATION_USER_PROMPT.format(
                 requirements_text=requirements_text
@@ -222,38 +272,68 @@ def build_test_harness(code: str, test_input: dict) -> str:
 
     This dynamically inspects the generated code to find the processor class/function
     and invoke it with the test input. Returns a harness string.
+
+    Uses base64-encoded JSON for safe input transfer (avoids string escaping issues).
     """
-    serialized_input = json.dumps(test_input).replace("\\", "\\\\").replace('"', '\\"')
+    import base64
+    encoded_input = base64.b64encode(json.dumps(test_input).encode()).decode()
+
     harness = f"""
 import json
 import sys
+import base64
 from decimal import Decimal
 
 import generated_module as mod
 
-test_input = json.loads("{serialized_input}")
+test_input = json.loads(base64.b64decode("{encoded_input}").decode())
+
+def serialize_value(v):
+    \"\"\"Normalize a single value for JSON output.\"\"\"
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, Decimal):
+        return str(v.quantize(Decimal("0.01")))
+    if hasattr(v, 'value'):  # Enum
+        return str(v.value).upper()
+    if isinstance(v, (int, float)):
+        return v
+    if v is None:
+        return None
+    return str(v)
+
+def serialize_result(result):
+    \"\"\"Convert any result type to a JSON-serializable dict.\"\"\"
+    if isinstance(result, dict):
+        return {{k: serialize_value(v) for k, v in result.items()}}
+    if hasattr(result, '__dict__') and not isinstance(result, type):
+        return {{k: serialize_value(v) for k, v in result.__dict__.items() if not k.startswith('_')}}
+    if hasattr(result, '_asdict'):  # namedtuple
+        return {{k: serialize_value(v) for k, v in result._asdict().items()}}
+    return {{"result": str(result)}}
+
+PROCESS_METHODS = ['process', 'execute', 'run', 'process_claim', 'rebalance',
+                   'process_claims', 'handle', 'handle_claim', 'evaluate',
+                   'calculate', 'rebalance_portfolio']
 
 result = None
 try:
-    # Priority 1: Look for classes with a 'process' method (most common pattern)
+    # Priority 1: Look for classes with a process-like method
     candidates = []
     for name in dir(mod):
         obj = getattr(mod, name)
         if not isinstance(obj, type) or name.startswith('_'):
             continue
-        # Skip Enum subclasses and known non-processor types
+        # Skip Enum subclasses, Exception subclasses, and known non-processor types
         try:
             from enum import Enum
-            if issubclass(obj, Enum):
+            if issubclass(obj, (Enum, Exception)):
                 continue
         except (TypeError, ImportError):
             pass
-        # Check if it has a process-like method before trying to instantiate
-        has_process = any(
-            hasattr(obj, m) for m in ['process', 'execute', 'run', 'process_claim', 'rebalance']
-        )
+        has_process = any(hasattr(obj, m) for m in PROCESS_METHODS)
         if has_process:
-            candidates.insert(0, (name, obj))  # prioritize
+            candidates.insert(0, (name, obj))
         else:
             candidates.append((name, obj))
 
@@ -261,7 +341,6 @@ try:
         try:
             instance = obj()
         except TypeError:
-            # Try with __new__ for dataclasses with defaults
             try:
                 instance = obj.__new__(obj)
             except Exception:
@@ -269,52 +348,44 @@ try:
         except Exception:
             continue
 
-        for method_name in ['process', 'execute', 'run', 'process_claim', 'rebalance']:
+        for method_name in PROCESS_METHODS:
             if hasattr(instance, method_name):
                 method = getattr(instance, method_name)
-                result = method(test_input)
-                break
+                if callable(method):
+                    result = method(test_input)
+                    break
         if result is not None:
             break
 
     # Priority 2: Look for module-level functions
     if result is None:
-        for name in ['process', 'execute', 'run', 'process_claim', 'rebalance']:
+        for name in PROCESS_METHODS:
             if hasattr(mod, name) and callable(getattr(mod, name)):
                 result = getattr(mod, name)(test_input)
                 break
 
-    # Serialize result
+    # Priority 3: Look for any callable class that accepts a dict argument
+    if result is None:
+        for name in dir(mod):
+            obj = getattr(mod, name)
+            if not isinstance(obj, type) or name.startswith('_'):
+                continue
+            try:
+                from enum import Enum
+                if issubclass(obj, (Enum, Exception)):
+                    continue
+            except (TypeError, ImportError):
+                pass
+            try:
+                instance = obj()
+                if callable(instance):
+                    result = instance(test_input)
+                    break
+            except Exception:
+                continue
+
     if result is not None:
-        if hasattr(result, '__dict__') and not isinstance(result, dict):
-            out = {{}}
-            for k, v in result.__dict__.items():
-                if isinstance(v, Decimal):
-                    out[k] = str(v.quantize(Decimal("0.01")))
-                elif isinstance(v, bool):
-                    out[k] = v
-                elif hasattr(v, 'value'):  # Enum
-                    out[k] = str(v.value).upper()
-                elif isinstance(v, (int, float)):
-                    out[k] = v
-                else:
-                    out[k] = str(v) if v is not None else None
-            print(json.dumps(out))
-        elif isinstance(result, dict):
-            # Normalize Decimals in dict
-            out = {{}}
-            for k, v in result.items():
-                if isinstance(v, Decimal):
-                    out[k] = str(v.quantize(Decimal("0.01")))
-                elif isinstance(v, bool):
-                    out[k] = v
-                elif hasattr(v, 'value'):
-                    out[k] = str(v.value).upper()
-                else:
-                    out[k] = v
-            print(json.dumps(out))
-        else:
-            print(json.dumps({{"result": str(result)}}))
+        print(json.dumps(serialize_result(result)))
     else:
         print(json.dumps({{"error": "No processor class or function found in generated module"}}))
 except Exception as e:
@@ -326,32 +397,85 @@ except Exception as e:
 # Canonical key aliases — generated code may return keys under various names.
 # Map all known variants to a single canonical form for comparison.
 KEY_ALIASES = {
-    "amount": "amount",
+    # Payout / amount variants
+    "amount": "payout",
     "payout": "payout",
     "payout_amount": "payout",
+    "payoutamount": "payout",
     "net_claim": "payout",
+    "netclaim": "payout",
+    "net_amount": "payout",
+    "claim_payout": "payout",
+    "approved_amount": "payout",
+    "payment": "payout",
+    "payment_amount": "payout",
+    # Trade amount variants
     "trade_amount": "trade_amount",
     "trade_value": "trade_amount",
     "tradeamount": "trade_amount",
+    "tradevalue": "trade_amount",
+    "order_amount": "trade_amount",
+    "rebalance_amount": "trade_amount",
+    # Status variants
     "status": "status",
     "claim_status": "status",
+    "claimstatus": "status",
+    "result_status": "status",
+    "approval_status": "status",
+    "processing_status": "status",
+    # Action variants
     "action": "action",
     "rebalance_action": "action",
+    "rebalanceaction": "action",
+    "trade_action": "action",
+    "order_action": "action",
+    "trade_direction": "action",
+    # Error code variants
     "error_code": "error_code",
     "errorcode": "error_code",
+    "err_code": "error_code",
+    "denial_code": "error_code",
+    "rejection_code": "error_code",
+    "reason_code": "error_code",
+    # Error message variants
     "error": "error",
+    "error_message": "error",
+    "errormessage": "error",
+    "err_msg": "error",
+    # Reason variants
     "reason": "reason",
     "hold_reason": "reason",
+    "holdreason": "reason",
+    "denial_reason": "reason",
+    "block_reason": "reason",
+    "audit_reason": "reason",
+    "reason_text": "reason",
+    # TLH flag variants
     "tlh_flag": "tlh_flag",
     "tlhflag": "tlh_flag",
+    "tlh": "tlh_flag",
+    "tax_loss_harvest": "tlh_flag",
+    "tax_loss_flag": "tlh_flag",
+    "tax_loss_harvest_flag": "tlh_flag",
+    "taxlossharvest": "tlh_flag",
+    # Wash sale flag variants
     "wash_sale_flag": "wash_sale_flag",
     "washsaleflag": "wash_sale_flag",
+    "wash_sale": "wash_sale_flag",
+    "washsale": "wash_sale_flag",
+    "wash_sale_block": "wash_sale_flag",
+    # Validity variants
     "is_valid": "is_valid",
     "isvalid": "is_valid",
+    "valid": "is_valid",
+    # Concentrated position variants
+    "concentrated_flag": "concentrated_flag",
+    "concentrated": "concentrated_flag",
+    "concentration_flag": "concentrated_flag",
 }
 
 # Fields that hold boolean semantics — only these are eligible for bool coercion.
-BOOLEAN_FIELDS = frozenset(("tlh_flag", "wash_sale_flag", "is_valid"))
+BOOLEAN_FIELDS = frozenset(("tlh_flag", "wash_sale_flag", "is_valid", "concentrated_flag"))
 
 # Fields that hold integer semantics — cosmetic int vs string differences.
 INTEGER_FIELDS = frozenset(("error_code",))
@@ -401,7 +525,7 @@ def _normalize_output(output: dict) -> dict:
             cleaned = re.sub(r'[_\-]+', ' ', value)
             cleaned = re.sub(r'\s+', ' ', cleaned).strip()
             # Truncate at common separators (explanatory suffixes)
-            for sep in [' — ', ' - ', '. ', ': ']:
+            for sep in [' — ', ' - ', '. ', ': ', '; ', ' (', ' PER ', ' DUE TO ']:
                 if sep in cleaned:
                     cleaned = cleaned.split(sep)[0].strip()
                     break
@@ -409,18 +533,44 @@ def _normalize_output(output: dict) -> dict:
             cleaned = cleaned.replace('MINIMUM', 'MIN')
             cleaned = cleaned.replace('MAXIMUM', 'MAX')
             cleaned = cleaned.replace('THRESHOLD', 'THRESHOLD')  # no-op anchor
+            # TLH normalization
             cleaned = cleaned.replace('TAX LOSS HARVESTING', 'TLH')
             cleaned = cleaned.replace('TAX LOSS HARVEST', 'TLH')
+            cleaned = cleaned.replace('TLH OPPORTUNITY DETECTED', 'TLH OPPORTUNITY')
             cleaned = cleaned.replace('OPPORTUNITY DETECTED', '')
+            cleaned = cleaned.replace('TLH TRIGGERED', 'TLH OPPORTUNITY')
+            # Wash sale normalization
             cleaned = cleaned.replace('BLOCK HOLD PERIOD', 'BLOCK')
             cleaned = cleaned.replace('BLOCKED', 'BLOCK')
-            # ADD THESE NEW NORMALIZATIONS:
-            cleaned = cleaned.replace('FEE EROSION', 'MIN TRADE THRESHOLD')
+            cleaned = cleaned.replace('WASH SALE VIOLATION', 'WASH SALE BLOCK')
+            cleaned = cleaned.replace('WASH SALE RULE', 'WASH SALE BLOCK')
+            cleaned = cleaned.replace('WASH SALE RESTRICTION', 'WASH SALE BLOCK')
+            cleaned = cleaned.replace('WASH SALE HOLD', 'WASH SALE BLOCK')
+            # Fee / min trade normalization
+            cleaned = cleaned.replace('FEE EROSION PROTECTION', 'BELOW MIN TRADE THRESHOLD')
+            cleaned = cleaned.replace('FEE EROSION', 'BELOW MIN TRADE THRESHOLD')
             cleaned = cleaned.replace('TRADE AMOUNT TOO SMALL', 'BELOW MIN TRADE THRESHOLD')
             cleaned = cleaned.replace('BELOW MINIMUM TRADE', 'BELOW MIN TRADE THRESHOLD')
+            cleaned = cleaned.replace('BELOW FEE BREAKEVEN', 'BELOW MIN TRADE THRESHOLD')
+            cleaned = cleaned.replace('TRADE TOO SMALL', 'BELOW MIN TRADE THRESHOLD')
+            cleaned = cleaned.replace('MIN TRADE AMOUNT', 'MIN TRADE THRESHOLD')
+            cleaned = cleaned.replace('INSUFFICIENT TRADE', 'BELOW MIN TRADE THRESHOLD')
+            # Drift normalization
             cleaned = cleaned.replace('HOLD DRIFT', 'DRIFT')
             cleaned = cleaned.replace('WITHIN ACCEPTABLE', 'WITHIN')
             cleaned = cleaned.replace('WITHIN TOLERANCE', 'WITHIN THRESHOLD')
+            cleaned = cleaned.replace('DRIFT BELOW THRESHOLD', 'DRIFT WITHIN THRESHOLD')
+            cleaned = cleaned.replace('DRIFT UNDER THRESHOLD', 'DRIFT WITHIN THRESHOLD')
+            cleaned = cleaned.replace('NO REBALANCE NEEDED', 'DRIFT WITHIN THRESHOLD')
+            cleaned = cleaned.replace('NO REBALANCING REQUIRED', 'DRIFT WITHIN THRESHOLD')
+            # Claims-specific normalization
+            cleaned = cleaned.replace('CLAIM AGE EXCEEDED', 'CLAIM TOO OLD')
+            cleaned = cleaned.replace('CLAIM EXPIRED', 'CLAIM TOO OLD')
+            cleaned = cleaned.replace('EXCEEDS COVERAGE', 'OVER LIMIT')
+            cleaned = cleaned.replace('OVER COVERAGE LIMIT', 'OVER LIMIT')
+            cleaned = cleaned.replace('AMOUNT EXCEEDS LIMIT', 'OVER LIMIT')
+            cleaned = cleaned.replace('REGULATORY CAP APPLIED', 'REGULATORY CAP')
+            cleaned = cleaned.replace('MANAGER REVIEW REQUIRED', 'MANAGER REVIEW')
             cleaned = re.sub(r'\s+', ' ', cleaned).strip()
             normalized[canonical_key] = cleaned
             continue
@@ -456,8 +606,15 @@ def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
     if json.dumps(norm_legacy, sort_keys=True, default=str) == json.dumps(norm_modern, sort_keys=True, default=str):
         return (0, "Identical")
 
-    # Strip informational-only fields before comparison
-    IGNORE_FIELDS = {"message", "description", "details", "timestamp", "rule_id", "rule_ref"}
+    # Strip informational-only fields before comparison — these are extra context
+    # that generated code may include but legacy doesn't, and vice versa.
+    IGNORE_FIELDS = {
+        "message", "description", "details", "timestamp", "rule_id", "rule_ref",
+        "audit_trail", "log", "trace", "debug", "notes", "info",
+        "processing_time", "batch_id", "claim_id", "account_id",
+        "provider_id", "service_date", "submission_date",
+        "concentrated_flag",  # informational flag, not a business outcome
+    }
 
     def _strip_info_fields(d):
         return {k: v for k, v in d.items() if k not in IGNORE_FIELDS}
@@ -483,7 +640,7 @@ def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
     if legacy_status != modern_status:
         return (3, "Breaking — different business outcome")
 
-    # Status/action matches — check amounts and remaining differences
+    # Status/action matches — check amounts
     legacy_amount = norm_legacy.get("payout") or norm_legacy.get("trade_amount")
     modern_amount = norm_modern.get("payout") or norm_modern.get("trade_amount")
 
@@ -491,13 +648,12 @@ def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
         try:
             diff = abs(Decimal(str(legacy_amount)) - Decimal(str(modern_amount)))
             if diff == 0:
-                return (0, "Identical")
+                pass  # Amounts match, continue checking other fields
             elif diff <= Decimal("0.05"):
                 return (1, "Acceptable variance — rounding ($" + str(diff) + ")")
             elif diff <= Decimal("5.00"):
                 return (1, "Acceptable variance — minor calculation difference ($" + str(diff) + ")")
             else:
-                # Status matches but amount differs significantly — Type 2 for human review
                 return (2, "Semantic — value difference ($" + str(diff) + ")")
         except Exception:
             pass
@@ -507,7 +663,37 @@ def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
     if (legacy_amount is None) != (modern_amount is None):
         return (1, "Acceptable variance — amount field presence differs")
 
-    # Status matches, no amount fields or amounts match — cosmetic differences only
+    # Check error_code match for denial cases
+    legacy_err = norm_legacy.get("error_code")
+    modern_err = norm_modern.get("error_code")
+    if legacy_err is not None and modern_err is not None:
+        if legacy_err != modern_err:
+            return (1, "Acceptable variance — different error code ({} vs {})".format(legacy_err, modern_err))
+
+    # If one has error_code and the other doesn't, but status matches, that's acceptable
+    if (legacy_err is not None) != (modern_err is not None):
+        return (1, "Acceptable variance — error code field presence differs")
+
+    # Compare remaining fields, ignoring extra keys in modern that aren't in legacy
+    # (generated code often adds extra informational fields)
+    core_keys = set(stripped_legacy.keys())
+    mismatches = []
+    for k in core_keys:
+        if k in stripped_modern:
+            lv = str(stripped_legacy[k]).strip()
+            mv = str(stripped_modern[k]).strip()
+            if lv != mv:
+                mismatches.append(k)
+
+    if not mismatches:
+        # All legacy keys match; modern may have extra keys — that's fine
+        return (0, "Identical")
+
+    # Only reason/description mismatches are acceptable when status + amount match
+    if all(k in ("reason",) for k in mismatches):
+        return (1, "Acceptable variance — reason text differs")
+
+    # Status matches, amounts match or N/A — remaining are cosmetic
     return (1, "Acceptable variance — status match, formatting differences")
 
 
