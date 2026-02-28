@@ -366,63 +366,6 @@ async function runAnalysis() {
       }, 16);
     }, 200);
 
-    // Populate AI reasoning panel from analysis data
-    const reasoningPanel = document.getElementById('reasoning-panel');
-    reasoningPanel.style.display = 'block';
-
-    const topRisk = risks.length > 0 ? risks.sort((a,b) =>
-      (a.severity === 'High' ? 0 : a.severity === 'Medium' ? 1 : 2) -
-      (b.severity === 'High' ? 0 : b.severity === 'Medium' ? 1 : 2)
-    )[0] : null;
-
-    document.getElementById('reasoning-approach').textContent =
-      'Rule extraction and greenfield generation (not lift-and-shift). ' +
-      rationaleText;
-
-    document.getElementById('reasoning-not-lift').textContent =
-      'Lift-and-shift would carry forward ' +
-      (code.dead_code_pct || 0).toFixed(0) + '% dead code, ' +
-      (code.workarounds_identified || 0) + ' identified workaround(s), and ' +
-      (code.security_issues || 0) + ' security issue(s). ' +
-      'Rule extraction eliminates all three by generating from requirements only.';
-
-    document.getElementById('reasoning-risk').textContent = topRisk
-      ? '[' + topRisk.severity + '] ' + topRisk.risk + ' — Mitigation: ' + topRisk.mitigation
-      : 'No high-severity migration risks identified.';
-
-    // Reference to Playbook maturity model
-    const maturityBefore = 'Ad hoc';
-    const maturityAfter = conf >= 0.7 ? 'Systematic' : 'Planned';
-    document.getElementById('reasoning-maturity').textContent =
-      'This system currently operates at "' + maturityBefore + '" modernization maturity. ' +
-      'Completing this migration moves it to "' + maturityAfter + '" with ' +
-      'documented business rules, automated testing, and a repeatable pipeline. ' +
-      'Subsequent systems will benefit from reusable domain patterns.';
-
-    // ── Architectural Recommendations (Playbook alignment) ──
-    const arch = m.architectural_recommendations || {};
-    const boundaries = arch.microservice_boundaries || [];
-    const integrations = arch.integration_modernization || [];
-    if (boundaries.length > 0 || integrations.length > 0) {
-      document.getElementById('arch-recs-panel').style.display = '';
-      const boundEl = document.getElementById('arch-boundaries');
-      const integEl = document.getElementById('arch-integrations');
-      boundEl.innerHTML = '';
-      integEl.innerHTML = '';
-      boundaries.forEach(b => {
-        const div = document.createElement('div');
-        div.className = 'detail-item';
-        div.textContent = b;
-        boundEl.appendChild(div);
-      });
-      integrations.forEach(ig => {
-        const div = document.createElement('div');
-        div.className = 'detail-item';
-        div.textContent = ig;
-        integEl.appendChild(div);
-      });
-    }
-
     pipelineLog('ZONE-2', 'Analysis complete — confidence: ' + confPct + '% — recommendation: ' + recText);
     toast('Analysis complete — confidence ' + confPct + '%');
   } catch (e) {
@@ -455,18 +398,6 @@ function downloadAnalysisReport() {
     return;
   }
   window.open('/api/analysis/' + state.runId + '/report', '_blank');
-}
-
-function toggleReasoning() {
-  const body = document.getElementById('reasoning-body');
-  const toggle = document.getElementById('reasoning-toggle');
-  if (body.style.display === 'none') {
-    body.style.display = 'block';
-    toggle.classList.add('open');
-  } else {
-    body.style.display = 'none';
-    toggle.classList.remove('open');
-  }
 }
 
 // ═══ ZONE 3: RULE STRAINER ═══

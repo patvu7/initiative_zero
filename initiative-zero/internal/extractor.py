@@ -26,7 +26,15 @@ CRITICAL RULES:
 - A developer who has never seen the source language must understand every rule
 - Distinguish between explicit rules (directly in code) and behavioral observations
   (inferred from patterns, comments, or anomalies)
-- The requirements document must be complete enough to build a new system from scratch"""
+
+REQUIREMENTS DOCUMENT QUALITY:
+- The requirements document MUST be comprehensive — minimum 800 words
+- It must be complete enough to build a new system from scratch with zero ambiguity
+- A skilled developer reading ONLY this document should produce functionally identical software
+- Include specific numeric thresholds, exact error codes, and precise calculation formulas
+- Document the ORDER of operations (e.g., deductible applied before copay, copay before cap)
+- Specify rounding behavior for all financial calculations
+- Include all error conditions with their exact error codes and behaviors"""
 
 EXTRACTION_USER_PROMPT = """Extract all business rules from this {language} source code.
 
@@ -42,7 +50,46 @@ Return a JSON object with exactly this structure. No markdown fences — just JS
       "confidence": "high" or "medium" or "low"
     }}
   ],
-  "requirements_document": "A complete plain-text requirements document. This is what will be sent to a code generation system that has NO access to the source code. It must contain:\n- Every business rule as a numbered requirement\n- Data types and constraints (currency precision, rounding rules)\n- Error handling behavior\n- Audit/logging requirements\n- Any behavioral observations from comments or patterns\n\nFormat as clean plain text with rule IDs (BR-001, BR-002, etc.)."
+  "requirements_document": "A COMPREHENSIVE plain-text requirements document structured as follows:
+
+SYSTEM OVERVIEW
+- One paragraph describing what this system does, its domain, and its role in the business process.
+
+FUNCTIONAL REQUIREMENTS
+- Every business rule as a numbered requirement (BR-001, BR-002, etc.)
+- Each requirement must include: the rule description, the exact threshold or formula,
+  the expected behavior, and the error code if applicable.
+- Group related requirements under subheadings (e.g., Validation Rules, Calculation Rules,
+  Threshold Rules, Audit Requirements).
+
+DATA CONSTRAINTS
+- All field types and their valid ranges
+- Currency precision requirements (decimal places, rounding mode)
+- Required vs optional fields
+- String format constraints (e.g., policy number format)
+
+PROCESSING ORDER
+- The exact sequence of operations from input to output
+- Which validations happen before which calculations
+- When audit logging occurs in the flow
+
+ERROR HANDLING
+- Complete list of error codes and their trigger conditions
+- Error response format
+- Whether processing continues or halts on each error type
+
+BEHAVIORAL OBSERVATIONS
+- Patterns inferred from comments, dead code, or anomalies (OBS-001, OBS-002, etc.)
+- These are NOT confirmed business rules — they require SME validation
+- Include the evidence that led to each observation
+
+AUDIT AND COMPLIANCE REQUIREMENTS
+- What must be logged and when
+- Regulatory references if mentioned in comments
+- Data retention or reporting implications
+
+The document MUST be at least 800 words. Be thorough — this is the ONLY input the code
+generation system will receive. It has NO access to the source code."
 }}
 
 For behavioral observations (patterns you infer from comments, dead code, or anomalies),

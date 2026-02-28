@@ -96,10 +96,6 @@ with exactly this structure. No markdown fences, no explanation — just the JSO
       "rationale": "inverse complexity — higher means simpler migration"
     }}
   }},
-  "architectural_recommendations": {{
-    "microservice_boundaries": ["list of potential service boundaries if monolith decomposition is applicable"],
-    "integration_modernization": ["list of batch-to-streaming or integration upgrade opportunities"]
-  }},
   "confidence_score": <float between 0.0 and 1.0 — MUST equal weighted sum of rubric scores>,
   "recommendation": "Proceed" or "Caution" or "Block",
   "recommendation_rationale": "2-3 sentences explaining the recommendation, referencing specific rubric scores"
@@ -350,27 +346,6 @@ def generate_report_markdown(run_id: str) -> str:
         report += f"| {label} | {s:.0%} | {w:.0%} | {weighted:.2f} | {rat} |\n"
 
     report += f"| **Total** | | | **{total_weighted:.2f} ({total_weighted:.0%})** | |\n"
-
-    # Architectural recommendations (Playbook alignment: monolith decomposition)
-    arch = m.get("architectural_recommendations", {})
-    boundaries = arch.get("microservice_boundaries", [])
-    integrations = arch.get("integration_modernization", [])
-    if boundaries or integrations:
-        report += """
----
-
-## 7. Architectural Recommendations
-
-"""
-        if boundaries:
-            report += "**Potential Microservice Boundaries:**\n"
-            for b in boundaries:
-                report += f"- {b}\n"
-            report += "\n"
-        if integrations:
-            report += "**Integration Modernization Opportunities:**\n"
-            for i in integrations:
-                report += f"- {i}\n"
 
     report += f"""
 ---
