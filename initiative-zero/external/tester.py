@@ -2,6 +2,7 @@
 
 import os
 import json
+from decimal import Decimal, ROUND_HALF_UP
 import anthropic
 from database import get_db, new_id, now_iso, strip_json_fences
 from external.executor import execute_python
@@ -269,6 +270,77 @@ except Exception as e:
     return harness
 
 
+# Canonical key aliases — generated code may return keys under various names.
+# Map all known variants to a single canonical form for comparison.
+KEY_ALIASES = {
+    "amount": "amount",
+    "payout": "payout",
+    "trade_amount": "trade_amount",
+    "trade_value": "trade_amount",
+    "tradeamount": "trade_amount",
+    "status": "status",
+    "action": "action",
+    "error_code": "error_code",
+    "errorcode": "error_code",
+    "reason": "reason",
+    "tlh_flag": "tlh_flag",
+    "tlhflag": "tlh_flag",
+    "wash_sale_flag": "wash_sale_flag",
+    "washsaleflag": "wash_sale_flag",
+    "is_valid": "is_valid",
+    "isvalid": "is_valid",
+}
+
+# Fields that hold boolean semantics — only these are eligible for bool coercion.
+BOOLEAN_FIELDS = frozenset(("tlh_flag", "wash_sale_flag", "is_valid"))
+
+# Key substrings that identify financial amount fields for fallback matching.
+FINANCIAL_KEY_PATTERNS = ("amount", "payout", "value", "cost", "price", "total")
+
+
+def _normalize_output(output: dict) -> dict:
+    """Normalize a test output dict for robust comparison.
+
+    1. Canonicalize keys via KEY_ALIASES (lowercase + strip).
+    2. Strip and uppercase all string values.
+       Note: boolean check happens after uppercasing; "true" → "TRUE" → True
+    3. Convert boolean-like strings in known boolean fields only.
+    4. Quantize numeric strings to 2 decimal places with ROUND_HALF_UP.
+    """
+    if not isinstance(output, dict):
+        return output
+
+    normalized = {}
+    for raw_key, value in output.items():
+        canonical_key = KEY_ALIASES.get(raw_key.lower().strip(), raw_key.lower().strip())
+
+        # Coerce value to string for uniform processing
+        if isinstance(value, bool):
+            normalized[canonical_key] = value
+            continue
+        value = str(value).strip().upper()
+
+        # Boolean conversion — only for known boolean fields
+        if canonical_key in BOOLEAN_FIELDS:
+            if value in ("TRUE", "1", "YES"):
+                normalized[canonical_key] = True
+                continue
+            elif value in ("FALSE", "0", "NO"):
+                normalized[canonical_key] = False
+                continue
+
+        # Decimal quantization for numeric strings
+        try:
+            d = Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            normalized[canonical_key] = str(d)
+            continue
+        except Exception:
+            pass
+
+        normalized[canonical_key] = value
+    return normalized
+
+
 def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
     """Classify drift between legacy and modern outputs.
 
@@ -281,35 +353,62 @@ def classify_drift(legacy_output: dict, modern_output: dict) -> tuple:
     if legacy_output == modern_output:
         return (0, "Identical")
 
-    # Normalize for comparison
-    legacy_str = json.dumps(legacy_output, sort_keys=True)
-    modern_str = json.dumps(modern_output, sort_keys=True)
+    # Normalize both outputs for robust comparison
+    norm_legacy = _normalize_output(legacy_output)
+    norm_modern = _normalize_output(modern_output)
 
-    if legacy_str == modern_str:
+    if json.dumps(norm_legacy, sort_keys=True, default=str) == json.dumps(norm_modern, sort_keys=True, default=str):
         return (0, "Identical")
 
-    # Check if core business outcome is the same
-    legacy_status = legacy_output.get("status") or legacy_output.get("action", "")
-    modern_status = modern_output.get("status") or modern_output.get("action", "")
+    # Check for error in modern output — always Type 3
+    if "error" in norm_modern:
+        return (3, "Breaking — modern output contains error")
+
+    # Check if core business outcome is the same (already normalized to uppercase)
+    legacy_status = norm_legacy.get("status") or norm_legacy.get("action", "")
+    modern_status = norm_modern.get("status") or norm_modern.get("action", "")
 
     if legacy_status != modern_status:
         return (3, "Breaking — different business outcome")
 
     # Check for numeric differences (potential rounding drift)
-    legacy_payout = legacy_output.get("payout") or legacy_output.get("trade_amount")
-    modern_payout = modern_output.get("payout") or modern_output.get("trade_amount")
+    legacy_amount = norm_legacy.get("payout") or norm_legacy.get("trade_amount") or norm_legacy.get("amount")
+    modern_amount = norm_modern.get("payout") or norm_modern.get("trade_amount") or norm_modern.get("amount")
 
-    if legacy_payout and modern_payout:
+    # Fallback: search for financial-key-patterned numeric values only
+    if legacy_amount is not None and modern_amount is None:
+        for key in norm_modern:
+            if not any(p in key for p in FINANCIAL_KEY_PATTERNS):
+                continue
+            try:
+                Decimal(str(norm_modern[key]))
+                modern_amount = norm_modern[key]
+                break
+            except Exception:
+                continue
+
+    if modern_amount is not None and legacy_amount is None:
+        for key in norm_legacy:
+            if not any(p in key for p in FINANCIAL_KEY_PATTERNS):
+                continue
+            try:
+                Decimal(str(norm_legacy[key]))
+                legacy_amount = norm_legacy[key]
+                break
+            except Exception:
+                continue
+
+    if legacy_amount is not None and modern_amount is not None:
         try:
-            diff = abs(float(legacy_payout) - float(modern_payout))
+            diff = abs(Decimal(str(legacy_amount)) - Decimal(str(modern_amount)))
             if diff == 0:
                 # Same numbers, other differences are cosmetic
                 return (1, "Acceptable variance")
-            elif diff < 0.02:
-                return (2, "Semantic — rounding difference")
+            elif diff <= Decimal("0.02"):
+                return (2, "Semantic — rounding difference ($" + str(diff) + ")")
             else:
-                return (3, "Breaking — value mismatch")
-        except (ValueError, TypeError):
+                return (3, "Breaking — value mismatch ($" + str(diff) + ")")
+        except Exception:
             pass
 
     # Default: if status matches but other fields differ, it's acceptable
@@ -423,13 +522,20 @@ def run_tests(run_id: str) -> list:
         expected = tc.get("expected_output", {})
         drift_type, drift_class = classify_drift(expected, modern_output)
 
-        # Reclassify for AI-generated: Type 0 = "Validated against requirements"
+        # Reclassify for AI-generated: AI expectations are predictions, not ground truth.
+        # Execution failures remain Type 3; other Type 3s downgrade to Type 2.
         if drift_type == 0:
             drift_class = "Validated against requirements"
         elif drift_type <= 1:
             drift_class = "Acceptable — minor variance from requirements"
         elif drift_type == 2:
             drift_class = "Deviation from requirements — needs review"
+        elif drift_type == 3:
+            if "error" in modern_output:
+                drift_class = "Breaking — execution failure (AI test)"
+            else:
+                drift_type = 2
+                drift_class = "Semantic — output differs from AI expectation"
 
         test_id = new_id()
         db.execute(

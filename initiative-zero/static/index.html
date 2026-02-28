@@ -467,12 +467,12 @@
         </div>
 
         <div class="human-gate" id="drift-gate">
-          <div class="human-gate-header">⚠ Human Gate — Type 2 Drift Adjudication</div>
+          <div class="human-gate-header">⚠ Human Gate — Drift Adjudication</div>
           <div class="human-gate-body">
-            <div class="gate-desc">COBOL truncates to $99.99; Python rounds correctly to $100.00. The $0.01 difference has regulatory implications at aggregate scale across 2.4M daily transactions.</div>
+            <div class="gate-desc">Drift analysis results will appear here after test execution.</div>
             <div class="gate-actions" id="drift-actions">
               <button class="btn green" onclick="adjudicate('accept')">Accept Variance</button>
-              <button class="btn amber" onclick="adjudicate('preserve')">Preserve Bug</button>
+              <button class="btn amber" onclick="adjudicate('preserve')">Preserve Legacy Behavior</button>
               <button class="btn red" onclick="adjudicate('escalate')">Escalate to Compliance</button>
             </div>
             <div class="decision-record" id="drift-decision"></div>
