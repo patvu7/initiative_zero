@@ -26,6 +26,13 @@ CRITICAL RULES:
 - A developer who has never seen the source language must understand every rule
 - Distinguish between explicit rules (directly in code) and behavioral observations
   (inferred from patterns, comments, or anomalies)
+- For EVERY comparison or threshold check, specify the EXACT operator:
+  strictly greater than (>), greater than or equal (>=), strictly less than (<),
+  less than or equal (<=), or equal to (=). Getting boundary conditions wrong
+  is the #1 cause of migration defects.
+- Document the EXACT processing order — which checks happen first, and which
+  checks can OVERRIDE prior decisions (e.g., a wash sale check blocking a trade
+  that was already triggered by drift)
 
 REQUIREMENTS DOCUMENT QUALITY:
 - The requirements document MUST be comprehensive — minimum 800 words
@@ -61,6 +68,10 @@ FUNCTIONAL REQUIREMENTS
   the expected behavior, and the error code if applicable.
 - Group related requirements under subheadings (e.g., Validation Rules, Calculation Rules,
   Threshold Rules, Audit Requirements).
+- For EVERY threshold comparison, state the EXACT operator: 'strictly greater than' (>),
+  'greater than or equal to' (>=), 'strictly less than' (<), etc.
+  Example: 'Rebalance triggers when absolute drift is STRICTLY GREATER THAN the
+  threshold (not greater than or equal — equality means no rebalance).'
 
 DATA CONSTRAINTS
 - All field types and their valid ranges
@@ -72,6 +83,8 @@ PROCESSING ORDER
 - The exact sequence of operations from input to output
 - Which validations happen before which calculations
 - When audit logging occurs in the flow
+- When a later check can OVERRIDE a prior decision (e.g., wash sale blocking a
+  triggered trade), document this override behavior explicitly with numbered steps
 
 ERROR HANDLING
 - Complete list of error codes and their trigger conditions

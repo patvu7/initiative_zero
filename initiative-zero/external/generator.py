@@ -34,6 +34,14 @@ CODE QUALITY STANDARDS:
 - Follow clean architecture: separate domain logic from I/O concerns
 - All thresholds and configuration values must be class-level constants, not magic numbers
 
+BOUNDARY CONDITION PRECISION:
+- When requirements say 'strictly greater than' or 'exceeds', use > (NOT >=)
+- When requirements say 'greater than or equal to' or 'at least', use >= (NOT >)
+- When requirements say 'less than' or 'below', use < (NOT <=)
+- Boundary conditions are the #1 source of migration defects — match the requirement EXACTLY
+- When a later processing step can override an earlier decision (e.g., wash sale blocking
+  a trade that drift analysis triggered), implement the override correctly in sequence
+
 MANDATORY INTERFACE:
 Your module MUST include a top-level class with a `process(self, input_data: dict) -> dict` method.
 This is the entry point that the testing harness will call.
@@ -95,6 +103,9 @@ CRITICAL — COMMON MISTAKES TO AVOID:
 - When claim_amount exceeds coverage_limit, return DENIED with error_code 1001 — do NOT cap the amount
 - Empty/blank policy_number must return DENIED with error_code 1002
 - For HOLD actions, always include a "reason" field explaining why
+- Pay EXTREME attention to comparison operators: > vs >= matters. 'strictly greater than' means >, NOT >=. This is the most common source of migration defects at boundary values.
+- Follow the EXACT processing order from requirements — do not reorder validation or calculation steps
+- When one rule can override a prior decision (e.g., wash sale check overriding a triggered rebalance to HOLD), implement the override exactly as described in the processing order
 
 Return ONLY the Python code. No markdown fences, no explanations."""
 
