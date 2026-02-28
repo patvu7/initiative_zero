@@ -412,5 +412,10 @@ def api_get_decisions(run_id):
         return api_error(f"Failed to get decisions: {e}", zone=1, code="DECISIONS_GET_FAILED")
 
 
+@app.route('/api/health')
+def health():
+    return jsonify({"status": "ok", "version": "0.1.0"})
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

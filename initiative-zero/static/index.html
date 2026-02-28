@@ -75,6 +75,7 @@
       <span class="current" id="bc-zone">Legacy Env</span>
     </div>
     <div class="topbar-actions">
+      <button class="btn" id="btn-toggle-log" onclick="togglePipelineLog()" style="font-size:10px;padding:4px 10px;">Log</button>
       <span class="topbar-badge status-chip info" id="pipeline-status">Zone 1 of 6</span>
     </div>
   </div>
@@ -99,6 +100,10 @@
     <div class="run-bar-item">
       <span class="run-bar-label">Firewall Crossings</span>
       <span class="run-bar-value" id="rb-crossings">0</span>
+    </div>
+    <div class="run-bar-item">
+      <span class="run-bar-label">Elapsed</span>
+      <span class="run-bar-value" id="rb-elapsed">0:00</span>
     </div>
   </div>
 
@@ -250,6 +255,21 @@
             <div class="reasoning-section">
               <div class="reasoning-label">Estimated Maturity Impact</div>
               <div class="reasoning-content" id="reasoning-maturity"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── ARCHITECTURAL RECOMMENDATIONS ─── -->
+        <div id="arch-recs-panel" style="display:none">
+          <div class="section-label">Architectural Recommendations</div>
+          <div class="data-grid" style="grid-template-columns:1fr 1fr">
+            <div class="data-card">
+              <div class="data-card-title"><span class="dot"></span>Microservice Boundaries</div>
+              <div id="arch-boundaries"></div>
+            </div>
+            <div class="data-card">
+              <div class="data-card-title"><span class="dot"></span>Integration Modernization</div>
+              <div id="arch-integrations"></div>
             </div>
           </div>
         </div>
@@ -500,11 +520,7 @@
       <div class="coex-live" id="coex-live">
         <div class="coex-controls">
           <select id="coex-txn-selector" class="btn" style="min-width:280px;padding:8px 12px;">
-            <option value="0">Txn 1: Drift above threshold — SELL</option>
-            <option value="1">Txn 2: Drift within threshold — HOLD</option>
-            <option value="2">Txn 3: Tax-loss harvest trigger</option>
-            <option value="3">Txn 4: Wash sale block</option>
-            <option value="4">Txn 5: Below minimum trade</option>
+            <option value="0">Select a transaction…</option>
           </select>
           <button class="btn primary" onclick="runCoexSimulation()" id="btn-coex-run">▶ Process Transaction</button>
         </div>
@@ -589,6 +605,15 @@
           <div class="decision-record" id="canary-decision"></div>
         </div>
       </div>
+    </div>
+
+    <!-- ═══════ PIPELINE LOG ═══════ -->
+    <div class="pipeline-log-wrap" id="pipeline-log-wrap" style="display:none">
+      <div class="pipeline-log-header" onclick="togglePipelineLog()">
+        <span class="pipeline-log-title">Pipeline Log</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--tx4)">▼</span>
+      </div>
+      <div class="pipeline-log-body" id="pipeline-log"></div>
     </div>
 
   </div><!-- /content -->

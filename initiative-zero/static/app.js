@@ -1,3 +1,7 @@
+// ═══ CONSTANTS ═══
+const OPERATOR = { name: 'S. Chen', role: 'Staff Eng' };
+const SESSION_START = new Date().toISOString().split('.')[0] + 'Z';
+
 // ═══ STATE ═══
 const ZONES = {1:'Legacy Env',2:'Analysis',3:'Rule Strainer',4:'Generation',5:'Testing',6:'Production'};
 let currentZone = 1;
@@ -17,6 +21,8 @@ let state = {
 let coexTxnCount = 0;
 let humanDecisionCount = 0;
 let coexStats = { total: 0, matched: 0, drift: 0, latencyDeltas: [] };
+let runStartTime = null;
+let elapsedInterval = null;
 
 // ═══ API HELPER ═══
 async function api(path, method = 'GET', body = null) {
@@ -28,6 +34,42 @@ async function api(path, method = 'GET', body = null) {
     throw new Error(err.error || `API error: ${res.status}`);
   }
   return res.json();
+}
+
+// ═══ PIPELINE LOG ═══
+
+/**
+ * Append a timestamped entry to the Pipeline Log panel.
+ * Automatically scrolls to the latest entry.
+ * @param {string} zone - Zone identifier (e.g. "ZONE-1", "FIREWALL")
+ * @param {string} message - Log message
+ * @param {boolean} isHuman - Whether this is a human decision (styled differently)
+ */
+function pipelineLog(zone, message, isHuman = false) {
+  const logEl = document.getElementById('pipeline-log');
+  const wrap = document.getElementById('pipeline-log-wrap');
+  if (!logEl) return;
+  wrap.style.display = '';
+  const ts = new Date().toISOString().split('.')[0] + 'Z';
+  const zoneClass = zone === 'FIREWALL' ? 'log-firewall' : isHuman ? 'log-human' : 'log-zone';
+  const humanTag = isHuman ? '[HUMAN] ' : '';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML =
+    '<span class="log-ts">[' + ts.split('T')[1] + ']</span> ' +
+    '<span class="' + zoneClass + '">[' + zone + ']</span> ' +
+    humanTag + escHtml(message);
+  logEl.appendChild(entry);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function togglePipelineLog() {
+  const wrap = document.getElementById('pipeline-log-wrap');
+  if (wrap.style.display === 'none') {
+    wrap.style.display = '';
+  } else {
+    wrap.style.display = 'none';
+  }
 }
 
 // ═══ NAVIGATION ═══
@@ -71,6 +113,10 @@ function runZone(z) {
 }
 
 // ═══ ZONE 1: LEGACY ENV ═══
+
+/**
+ * Load available legacy files from the API and populate the file selector.
+ */
 async function loadFiles() {
   try {
     const files = await api('/api/legacy/files');
@@ -120,10 +166,20 @@ async function createRunAndAdvance() {
     const result = await api('/api/runs', 'POST', {
       source_file: state.sourceFile,
       source_language: 'COBOL',
-      operator: 'S. Chen'
+      operator: OPERATOR.name
     });
     state.runId = result.run_id;
     updateRunBar();
+
+    // Start elapsed timer
+    runStartTime = Date.now();
+    elapsedInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - runStartTime) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      document.getElementById('rb-elapsed').textContent =
+        mins + ':' + String(secs).padStart(2, '0');
+    }, 1000);
 
     // Update sidebar system info
     const sidebarSystem = document.querySelector('.sidebar-system');
@@ -136,6 +192,8 @@ async function createRunAndAdvance() {
     // Update breadcrumb
     document.querySelector('.breadcrumb span:first-child').textContent = displayName;
 
+    pipelineLog('ZONE-1', 'Run ' + state.runId + ' initiated by ' + OPERATOR.name + ' — source: ' + state.sourceFile);
+
     advanceZone(2);
   } catch (e) {
     toast('Error creating run: ' + e.message);
@@ -143,10 +201,35 @@ async function createRunAndAdvance() {
 }
 
 // ═══ ZONE 2: ANALYSIS ═══
+
+/**
+ * Run Zone 2 analysis via Claude API.
+ * Populates the analysis data grid, confidence rubric, reasoning panel,
+ * architectural recommendations, and migration risk table. Updates run bar status.
+ * @throws {Error} If API call fails or returns unparseable response
+ */
 async function runAnalysis() {
   updateStatus(2, 'running', '●');
+  pipelineLog('ZONE-2', 'Analysis started — model: claude-sonnet-4-20250514');
+
+  // Loading state: rotating progress messages
+  const progressMessages = [
+    'Mapping control flow paths\u2026',
+    'Identifying business rules in PROCEDURE DIVISION\u2026',
+    'Calculating cyclomatic complexity\u2026',
+    'Assessing migration economics\u2026',
+    'Building confidence rubric\u2026'
+  ];
+  let msgIndex = 0;
+  const progressInterval = setInterval(() => {
+    msgIndex = (msgIndex + 1) % progressMessages.length;
+    const procText = document.querySelector('#a-proc .processing-text');
+    if (procText) procText.textContent = progressMessages[msgIndex];
+  }, 2500);
+
   try {
     const result = await api('/api/analysis/run', 'POST', { run_id: state.runId });
+    clearInterval(progressInterval);
     state.analysis = result;
     const m = result.metrics;
     if (!m) {
@@ -264,8 +347,12 @@ async function runAnalysis() {
       rubricGrid.appendChild(item);
     }
 
-    // ── Confidence bar ──
+    // ── Confidence bar + reasoning panel ──
     const confPct = Math.round((result.confidence_score || 0) * 100);
+    const conf = result.confidence_score || 0;
+    const recText = result.recommendation || 'Caution';
+    const rationaleText = m.recommendation_rationale || '';
+
     setTimeout(() => {
       document.getElementById('conf-fill').style.width = confPct + '%';
       let v = 0;
@@ -274,10 +361,8 @@ async function runAnalysis() {
         document.getElementById('conf-score').textContent = v + '%';
         if (v >= confPct) {
           clearInterval(iv);
-          const rec = result.recommendation || 'Caution';
-          const rationale = m.recommendation_rationale || '';
           document.getElementById('conf-rec').textContent =
-            'Recommendation: ' + rec + (rationale ? ' — ' + rationale : '');
+            'Recommendation: ' + recText + (rationaleText ? ' — ' + rationaleText : '');
         }
       }, 16);
     }, 200);
@@ -286,10 +371,6 @@ async function runAnalysis() {
     const reasoningPanel = document.getElementById('reasoning-panel');
     reasoningPanel.style.display = 'block';
 
-    const conf = result.confidence_score || 0;
-    const rec = result.recommendation || 'Caution';
-    const rationale = m.recommendation_rationale || '';
-    // Reuse 'risks' declared above (line 225)
     const topRisk = risks.length > 0 ? risks.sort((a,b) =>
       (a.severity === 'High' ? 0 : a.severity === 'Medium' ? 1 : 2) -
       (b.severity === 'High' ? 0 : b.severity === 'Medium' ? 1 : 2)
@@ -297,7 +378,7 @@ async function runAnalysis() {
 
     document.getElementById('reasoning-approach').textContent =
       'Rule extraction and greenfield generation (not lift-and-shift). ' +
-      rationale;
+      rationaleText;
 
     document.getElementById('reasoning-not-lift').textContent =
       'Lift-and-shift would carry forward ' +
@@ -319,8 +400,34 @@ async function runAnalysis() {
       'documented business rules, automated testing, and a repeatable pipeline. ' +
       'Subsequent systems will benefit from reusable domain patterns.';
 
+    // ── Architectural Recommendations (Playbook alignment) ──
+    const arch = m.architectural_recommendations || {};
+    const boundaries = arch.microservice_boundaries || [];
+    const integrations = arch.integration_modernization || [];
+    if (boundaries.length > 0 || integrations.length > 0) {
+      document.getElementById('arch-recs-panel').style.display = '';
+      const boundEl = document.getElementById('arch-boundaries');
+      const integEl = document.getElementById('arch-integrations');
+      boundEl.innerHTML = '';
+      integEl.innerHTML = '';
+      boundaries.forEach(b => {
+        const div = document.createElement('div');
+        div.className = 'detail-item';
+        div.textContent = b;
+        boundEl.appendChild(div);
+      });
+      integrations.forEach(ig => {
+        const div = document.createElement('div');
+        div.className = 'detail-item';
+        div.textContent = ig;
+        integEl.appendChild(div);
+      });
+    }
+
+    pipelineLog('ZONE-2', 'Analysis complete — confidence: ' + confPct + '% — recommendation: ' + recText);
     toast('Analysis complete — confidence ' + confPct + '%');
   } catch (e) {
+    clearInterval(progressInterval);
     document.getElementById('a-proc').style.display = 'none';
     toast('Analysis error: ' + e.message);
   }
@@ -364,8 +471,16 @@ function toggleReasoning() {
 }
 
 // ═══ ZONE 3: RULE STRAINER ═══
+
+/**
+ * Run Zone 3 business rule extraction via Claude API.
+ * Populates the rules table, identifies behavioral observations (OBS-*),
+ * and enables the SME review flow.
+ * @throws {Error} If API call fails
+ */
 async function runStrainer() {
   updateStatus(3, 'running', '●');
+  pipelineLog('ZONE-3', 'Extraction started');
   try {
     const result = await api('/api/extraction/run', 'POST', { run_id: state.runId });
     state.rules = result.rules;
@@ -398,6 +513,7 @@ async function runStrainer() {
 
     const obsCount = rules.filter(r => r.rule_type === 'behavioral' || (r.id && r.id.startsWith('OBS'))).length;
     const explicitCount = rules.length - obsCount;
+    pipelineLog('ZONE-3', rules.length + ' rules extracted (' + explicitCount + ' explicit, ' + obsCount + ' behavioral observations)');
     toast(explicitCount + ' rules extracted' + (obsCount > 0 ? ' + ' + obsCount + ' behavioral observation' + (obsCount > 1 ? 's' : '') : ''));
   } catch (e) {
     document.getElementById('s-proc').style.display = 'none';
@@ -412,6 +528,11 @@ let smeReviewState = {
   reviewedCount: 0
 };
 
+/**
+ * Open the SME review panel for behavioral observation validation.
+ * Fetches the full requirements document and presents flagged rules
+ * for individual confirmation, modification, or rejection.
+ */
 async function openSmeReview() {
   document.getElementById('sme-pre-review').style.display = 'none';
   document.getElementById('sme-review-panel').style.display = 'block';
@@ -474,21 +595,25 @@ function reviewSmeItem(index, action) {
   const actions = document.getElementById('sme-actions-' + index);
   const status = document.getElementById('sme-status-' + index);
   const ts = new Date().toISOString().split('.')[0] + 'Z';
+  const ruleId = smeReviewState.flaggedRules[index]?.id || 'OBS-' + index;
 
   actions.style.display = 'none';
   item.classList.add('reviewed');
 
   if (action === 'confirm') {
-    status.textContent = '✓ Confirmed by S. Chen at ' + ts;
+    status.textContent = '✓ Confirmed by ' + OPERATOR.name + ' at ' + ts;
     status.style.color = 'var(--green-tx)';
+    pipelineLog('ZONE-3', 'SME review: ' + ruleId + ' confirmed by ' + OPERATOR.name, true);
   } else if (action === 'modify') {
-    status.textContent = '✎ Modified & confirmed by S. Chen at ' + ts;
+    status.textContent = '✎ Modified & confirmed by ' + OPERATOR.name + ' at ' + ts;
     status.style.color = 'var(--amber-tx)';
+    pipelineLog('ZONE-3', 'SME review: ' + ruleId + ' modified by ' + OPERATOR.name, true);
   } else {
-    status.textContent = '✗ Rejected by S. Chen at ' + ts;
+    status.textContent = '✗ Rejected by ' + OPERATOR.name + ' at ' + ts;
     status.style.color = 'var(--red-tx)';
     item.style.borderColor = 'var(--red)';
     item.style.background = 'var(--red-dim)';
+    pipelineLog('ZONE-3', 'SME review: ' + ruleId + ' rejected by ' + OPERATOR.name, true);
   }
 
   smeReviewState.reviewedCount++;
@@ -511,6 +636,12 @@ function downloadPrd() {
   window.open('/api/extraction/' + state.runId + '/prd', '_blank');
 }
 
+/**
+ * Handle SME specification sign-off (approve or flag for BA review).
+ * Records decision in the audit trail, triggers firewall crossing animation
+ * on approval, and enables Zone 4 generation.
+ * @param {string} action - "approve" or "flag"
+ */
 async function smeSign(action) {
   const ts = new Date().toISOString().split('.')[0] + 'Z';
   const dr = document.getElementById('sme-decision');
@@ -521,7 +652,7 @@ async function smeSign(action) {
   if (action === 'approve') {
     try {
       const result = await api('/api/extraction/' + state.runId + '/approve', 'POST', {
-        operator: 'S. Chen',
+        operator: OPERATOR.name,
         rationale: 'Requirements document validated after SME review'
       });
       state.requirementsDocId = result.requirements_doc_id;
@@ -530,11 +661,25 @@ async function smeSign(action) {
         '<div class="dr-body">Requirements document validated after SME review. ' +
         smeReviewState.flaggedRules.length + ' behavioral observation(s) reviewed. ' +
         'Cleared to cross security firewall.</div>' +
-        '<div class="dr-ts">' + escHtml(result.operator) + ' (Staff Eng) · ' + escHtml(result.timestamp) + '</div>';
+        '<div class="dr-ts">' + escHtml(result.operator) + ' (' + OPERATOR.role + ') · ' + escHtml(result.timestamp) + '</div>';
       document.getElementById('btn-to-gen').disabled = false;
       humanDecisionCount++;
       document.getElementById('rb-decisions').textContent = humanDecisionCount;
       document.getElementById('rb-crossings').textContent = '1';
+
+      pipelineLog('ZONE-3', 'Spec approved by ' + OPERATOR.name + ' — firewall crossing authorized', true);
+
+      // Firewall crossing animation
+      const firewallDiv = document.querySelector('.firewall-divider');
+      if (firewallDiv) {
+        firewallDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firewallDiv.classList.add('crossing');
+        setTimeout(() => {
+          firewallDiv.classList.remove('crossing');
+        }, 600);
+      }
+      pipelineLog('FIREWALL', 'Requirements doc crossed to external zone');
+
       toast('Spec approved — firewall crossing authorized');
     } catch (e) {
       document.getElementById('sme-actions').style.display = '';
@@ -545,14 +690,39 @@ async function smeSign(action) {
     dr.className = 'decision-record preserved show';
     dr.innerHTML = '<div class="dr-header">⚠ FLAGGED FOR BA REVIEW</div>' +
       '<div class="dr-body">Behavioral observations require business analyst confirmation before proceeding.</div>' +
-      '<div class="dr-ts">S. Chen (Staff Eng) · ' + ts + '</div>';
+      '<div class="dr-ts">' + OPERATOR.name + ' (' + OPERATOR.role + ') · ' + ts + '</div>';
     toast('Spec flagged — awaiting BA review');
   }
 }
 
 // ═══ ZONE 4: GENERATION ═══
+
+/**
+ * Run Zone 4 code generation via Claude API (external zone).
+ * Generates Python code from requirements-only (no source code).
+ * Displays requirements and generated code side-by-side with the
+ * generation prompt visible for firewall proof.
+ * @throws {Error} If API call fails
+ */
 async function runGeneration() {
   updateStatus(4, 'running', '●');
+  pipelineLog('ZONE-4', 'Generation started — input: requirements only (no source code)');
+
+  // Loading state: rotating progress messages
+  const genProgressMessages = [
+    'Building domain model from requirements\u2026',
+    'Generating class structure\u2026',
+    'Implementing business rule methods\u2026',
+    'Adding error handling and validation\u2026',
+    'Formatting Python output\u2026'
+  ];
+  let genMsgIndex = 0;
+  const genProgressInterval = setInterval(() => {
+    genMsgIndex = (genMsgIndex + 1) % genProgressMessages.length;
+    const procText = document.querySelector('#g-proc .processing-text');
+    if (procText) procText.textContent = genProgressMessages[genMsgIndex];
+  }, 2500);
+
   try {
     const [genResult, reqResult] = await Promise.all([
       api('/api/generation/run', 'POST', {
@@ -562,6 +732,7 @@ async function runGeneration() {
       api('/api/extraction/' + state.runId + '/requirements')
     ]);
 
+    clearInterval(genProgressInterval);
     state.generatedCode = genResult.code;
 
     document.getElementById('g-proc').style.display = 'none';
@@ -577,8 +748,11 @@ async function runGeneration() {
     document.getElementById('gen-prompt-panel').style.display = 'block';
     document.getElementById('gen-prompt-text').textContent = genResult.generation_prompt || '';
 
+    const lineCount = (genResult.code || '').split('\n').length;
+    pipelineLog('ZONE-4', 'Python module generated — ' + lineCount + ' lines');
     toast('Python application generated from requirements');
   } catch (e) {
+    clearInterval(genProgressInterval);
     document.getElementById('g-proc').style.display = 'none';
     toast('Generation error: ' + e.message);
   }
@@ -597,8 +771,17 @@ function toggleGenPrompt() {
 }
 
 // ═══ ZONE 5: TESTING ═══
+
+/**
+ * Run Zone 5 test execution against known test vectors.
+ * Executes generated code in a sandbox, classifies drift between
+ * legacy and modern outputs, and populates the quality gate metrics.
+ * Also dynamically populates the Zone 6 transaction selector.
+ * @throws {Error} If API call fails
+ */
 async function runTesting() {
   updateStatus(5, 'running', '●');
+  pipelineLog('ZONE-5', 'Test execution started');
   try {
     const results = await api('/api/testing/run', 'POST', { run_id: state.runId });
     state.testResults = results;
@@ -639,6 +822,16 @@ async function runTesting() {
       if (r.drift_type === 3) breakingCount++;
     });
 
+    // Dynamically populate Zone 6 transaction selector based on test results
+    const selector = document.getElementById('coex-txn-selector');
+    selector.innerHTML = '';
+    results.forEach((r, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = 'Txn ' + (i + 1) + ': ' + r.test_case;
+      selector.appendChild(opt);
+    });
+
     // Update quality gate metrics
     const totalTests = results.length;
     const passIcon = document.getElementById('qg-pass-icon');
@@ -669,6 +862,7 @@ async function runTesting() {
     breakVal.textContent = breakingCount > 0 ? breakingCount + ' found' : 'None';
     breakVal.style.color = breakingCount > 0 ? 'var(--red-tx)' : 'var(--green-tx)';
 
+    pipelineLog('ZONE-5', 'Results: ' + identicalCount + ' identical, ' + (totalTests - identicalCount - driftCount) + ' acceptable, ' + driftCount + ' semantic drift');
     toast(driftCount > 0
       ? driftCount + ' Type 2+ drift requires adjudication'
       : 'All tests passed — zero drift');
@@ -678,6 +872,11 @@ async function runTesting() {
   }
 }
 
+/**
+ * Adjudicate Type 2+ drift: accept the variance, preserve the legacy bug,
+ * or escalate to compliance. Records decision in the audit trail.
+ * @param {string} action - "accept", "preserve", or "escalate"
+ */
 async function adjudicate(action) {
   const ts = new Date().toISOString().split('.')[0] + 'Z';
   const dr = document.getElementById('drift-decision');
@@ -687,10 +886,12 @@ async function adjudicate(action) {
   const driftResult = (state.testResults || []).find(r => r.drift_type >= 2);
   const testId = driftResult ? driftResult.test_id : null;
 
+  const decisionLabel = action === 'accept' ? 'ACCEPT_VARIANCE' : action === 'preserve' ? 'PRESERVE_BUG' : 'ESCALATE';
+
   try {
     await api('/api/testing/' + state.runId + '/adjudicate', 'POST', {
-      operator: 'S. Chen',
-      decision: action === 'accept' ? 'ACCEPT_VARIANCE' : action === 'preserve' ? 'PRESERVE_BUG' : 'ESCALATE',
+      operator: OPERATOR.name,
+      decision: decisionLabel,
       test_id: testId,
       rationale: action === 'accept'
         ? 'Modern rounding is correct per standards'
@@ -704,6 +905,7 @@ async function adjudicate(action) {
 
   humanDecisionCount++;
   document.getElementById('rb-decisions').textContent = humanDecisionCount;
+  pipelineLog('ZONE-5', 'Drift adjudicated: ' + decisionLabel + ' by ' + OPERATOR.name, true);
 
   if (action === 'accept') {
     dr.className = 'decision-record accepted show';
@@ -729,6 +931,13 @@ async function adjudicate(action) {
 }
 
 // ═══ ZONE 6: PRODUCTION ═══
+
+/**
+ * Handle canary promotion or shadow extension decision.
+ * Records decision in the audit trail, updates slice progression bar,
+ * and adjusts router labels for traffic routing visualization.
+ * @param {string} action - "promote" or "extend"
+ */
 async function canaryDecision(action) {
   const ts = new Date().toISOString().split('.')[0] + 'Z';
   const dr = document.getElementById('canary-decision');
@@ -737,7 +946,7 @@ async function canaryDecision(action) {
 
   try {
     await api('/api/production/' + state.runId + '/decide', 'POST', {
-      operator: 'S. Chen',
+      operator: OPERATOR.name,
       decision: action === 'promote' ? 'promote' : 'extend_shadow',
       rationale: action === 'promote' ? 'Canary approved after shadow period' : 'Extended shadow observation'
     });
@@ -749,6 +958,7 @@ async function canaryDecision(action) {
   document.getElementById('rb-decisions').textContent = humanDecisionCount;
 
   if (action === 'promote') {
+    pipelineLog('ZONE-6', 'Canary promoted to 3% live traffic by ' + OPERATOR.name, true);
     dr.className = 'decision-record accepted show';
     dr.innerHTML = '<div class="dr-header">✓ CANARY APPROVED — 3% LIVE TRAFFIC</div>' +
       '<div class="dr-body">Modern system serving 3% of production. Legacy handles 97%. Monitoring active.</div>' +
@@ -766,6 +976,7 @@ async function canaryDecision(action) {
     updateStatus(6, 'running', '3%');
     toast('Canary approved — 3% routing to modern');
   } else {
+    pipelineLog('ZONE-6', 'Shadow extended +14 days by ' + OPERATOR.name, true);
     dr.className = 'decision-record preserved show';
     dr.innerHTML = '<div class="dr-header">⏳ SHADOW EXTENDED +14 DAYS</div>' +
       '<div class="dr-body">Additional observation period. New sign-off required after expiry.</div>' +
@@ -775,22 +986,28 @@ async function canaryDecision(action) {
 }
 
 // ═══ COEXISTENCE SIMULATOR ═══
+
+/**
+ * Run a single coexistence transaction simulation.
+ * Executes the selected test case through both legacy and modern systems,
+ * compares outputs, classifies drift, and updates aggregate stats.
+ */
 async function runCoexSimulation() {
   const selector = document.getElementById('coex-txn-selector');
   const testIndex = parseInt(selector.value);
   const btn = document.getElementById('btn-coex-run');
 
   btn.disabled = true;
-  btn.textContent = 'Processing…';
+  btn.textContent = 'Processing\u2026';
 
   document.getElementById('coex-flow').style.display = 'block';
   document.getElementById('coex-input-panel').classList.add('active');
-  document.getElementById('coex-legacy-status').textContent = 'Processing…';
+  document.getElementById('coex-legacy-status').textContent = 'Processing\u2026';
   document.getElementById('coex-legacy-status').style.color = 'var(--amber-tx)';
-  document.getElementById('coex-modern-status').textContent = 'Processing…';
+  document.getElementById('coex-modern-status').textContent = 'Processing\u2026';
   document.getElementById('coex-modern-status').style.color = 'var(--amber-tx)';
-  document.getElementById('coex-legacy-output').textContent = '…';
-  document.getElementById('coex-modern-output').textContent = '…';
+  document.getElementById('coex-legacy-output').textContent = '\u2026';
+  document.getElementById('coex-modern-output').textContent = '\u2026';
   document.getElementById('coex-legacy-panel').classList.remove('done');
   document.getElementById('coex-modern-panel').classList.remove('done');
   document.getElementById('coex-comparator').style.display = 'none';
@@ -907,6 +1124,21 @@ function toast(msg) {
   setTimeout(() => t.classList.remove('show'), 3200);
 }
 
+// ═══ KEYBOARD SHORTCUTS ═══
+document.addEventListener('keydown', (e) => {
+  // Ctrl+Right to advance zone (when advance button is visible and enabled)
+  if (e.key === 'ArrowRight' && e.ctrlKey) {
+    const activePanel = document.querySelector('.zone-panel.active');
+    const advBtn = activePanel?.querySelector('.btn-advance:not(:disabled)');
+    if (advBtn) advBtn.click();
+  }
+});
+
 // ═══ INIT ═══
 updateStatus(1, 'running', '●');
 loadFiles();
+
+// Update sidebar footer with constants
+document.querySelector('.sidebar-footer').innerHTML =
+  'Operator: ' + OPERATOR.name + ' (' + OPERATOR.role + ')<br>' +
+  'Session: ' + SESSION_START;

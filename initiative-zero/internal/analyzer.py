@@ -96,6 +96,10 @@ with exactly this structure. No markdown fences, no explanation — just the JSO
       "rationale": "inverse complexity — higher means simpler migration"
     }}
   }},
+  "architectural_recommendations": {{
+    "microservice_boundaries": ["list of potential service boundaries if monolith decomposition is applicable"],
+    "integration_modernization": ["list of batch-to-streaming or integration upgrade opportunities"]
+  }},
   "confidence_score": <float between 0.0 and 1.0 — MUST equal weighted sum of rubric scores>,
   "recommendation": "Proceed" or "Caution" or "Block",
   "recommendation_rationale": "2-3 sentences explaining the recommendation, referencing specific rubric scores"
@@ -261,7 +265,7 @@ def generate_report_markdown(run_id: str) -> str:
     report += f"""
 ---
 
-## 4. Migration Economics
+## 4. Migration Economics & ROI
 
 | Metric | Value |
 |--------|-------|
@@ -276,6 +280,39 @@ def generate_report_markdown(run_id: str) -> str:
 """
     for item in econ.get("hidden_costs", []):
         report += f"- {item}\n"
+
+    # ROI Summary (Playbook alignment: speed, risk reduction, knowledge preservation, financial impact)
+    import re
+    annual_str = econ.get("estimated_annual_maintenance", "")
+    ai_cost_str = econ.get("estimated_ai_migration_cost", "")
+    annual_match = re.search(r'[\d.]+', annual_str.replace(',', ''))
+    ai_cost_match = re.search(r'[\d.]+', ai_cost_str.replace(',', ''))
+    if annual_match and ai_cost_match:
+        annual_val = float(annual_match.group())
+        ai_cost_val = float(ai_cost_match.group())
+        # Normalize: if annual contains "M" it's millions, if "K" it's thousands
+        if 'M' in annual_str:
+            annual_val *= 1_000_000
+        elif 'K' in annual_str:
+            annual_val *= 1_000
+        if 'M' in ai_cost_str:
+            ai_cost_val *= 1_000_000
+        elif 'K' in ai_cost_str:
+            ai_cost_val *= 1_000
+        if ai_cost_val > 0:
+            roi_pct = ((annual_val - ai_cost_val) / ai_cost_val) * 100
+            report += f"""
+### ROI Summary
+
+| ROI Dimension | Impact |
+|--------------|--------|
+| **Financial** | {roi_pct:+.0f}% first-year ROI (annual savings vs. migration cost) |
+| **Speed** | AI-assisted migration reduces timeline vs. manual rewrite |
+| **Risk Reduction** | Automated drift detection catches regressions before production |
+| **Knowledge Preservation** | Business rules extracted and documented, reducing key-person dependency |
+
+*ROI = (Annual Maintenance Saved − Migration Cost) / Migration Cost*
+"""
 
     report += """
 ---
@@ -313,6 +350,27 @@ def generate_report_markdown(run_id: str) -> str:
         report += f"| {label} | {s:.0%} | {w:.0%} | {weighted:.2f} | {rat} |\n"
 
     report += f"| **Total** | | | **{total_weighted:.2f} ({total_weighted:.0%})** | |\n"
+
+    # Architectural recommendations (Playbook alignment: monolith decomposition)
+    arch = m.get("architectural_recommendations", {})
+    boundaries = arch.get("microservice_boundaries", [])
+    integrations = arch.get("integration_modernization", [])
+    if boundaries or integrations:
+        report += """
+---
+
+## 7. Architectural Recommendations
+
+"""
+        if boundaries:
+            report += "**Potential Microservice Boundaries:**\n"
+            for b in boundaries:
+                report += f"- {b}\n"
+            report += "\n"
+        if integrations:
+            report += "**Integration Modernization Opportunities:**\n"
+            for i in integrations:
+                report += f"- {i}\n"
 
     report += f"""
 ---
