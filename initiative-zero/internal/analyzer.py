@@ -1,7 +1,7 @@
 import os
 import json
 import anthropic
-from database import get_db, new_id, now_iso, strip_json_fences
+from database import get_db, new_id, strip_json_fences
 
 
 def _get_client():
@@ -223,13 +223,13 @@ def generate_report_markdown(run_id: str) -> str:
     for item in code.get("security_detail", []):
         report += f"- {item}\n"
 
-    report += f"""
+    report += """
 **Workaround Details:**
 """
     for item in code.get("workaround_details", []):
         report += f"- {item}\n"
 
-    report += f"""
+    report += """
 **Code Quality Notes:**
 """
     for item in code.get("code_quality_notes", []):

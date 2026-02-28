@@ -7,7 +7,6 @@ The pipeline architecture handles arbitrary scale — Zone 2 analysis
 and Zone 3 extraction operate on AST-level chunks, not whole files.
 """
 
-import os
 import pathlib
 
 SAMPLES_DIR = pathlib.Path(__file__).parent.parent / "samples"
@@ -19,7 +18,6 @@ def list_files():
         stat = f.stat()
         content = f.read_text()
         lines = content.strip().split('\n')
-        # Extract metadata from header comments
         files.append({
             "filename": f.name,
             "language": "COBOL",
@@ -32,9 +30,17 @@ def list_files():
 def get_file(filename: str):
     """Return contents and metadata of a specific file."""
     path = SAMPLES_DIR / filename
-    if not path.exists() or not path.suffix == '.cbl':
+    # Ensure the resolved path stays within SAMPLES_DIR to prevent path traversal
+    try:
+        resolved = path.resolve()
+        samples_resolved = SAMPLES_DIR.resolve()
+        if not str(resolved).startswith(str(samples_resolved)):
+            return None
+    except (OSError, ValueError):
         return None
-    content = path.read_text()
+    if not resolved.exists() or not resolved.suffix == '.cbl':
+        return None
+    content = resolved.read_text()
     lines = content.strip().split('\n')
     return {
         "filename": filename,

@@ -1,6 +1,5 @@
 import sqlite3
 import uuid
-import json
 from datetime import datetime, timezone
 
 DB_PATH = "decisions.db"
@@ -77,6 +76,7 @@ def init_db():
             modern_output TEXT,
             drift_type INTEGER,
             drift_classification TEXT,
+            source TEXT DEFAULT 'legacy_trace',
             adjudicated_by TEXT,
             adjudicated_at TEXT,
             adjudication_decision TEXT
