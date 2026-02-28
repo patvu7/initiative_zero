@@ -107,6 +107,59 @@ SOURCE CODE:
 ```"""
 
 
+RUBRIC_DIMENSIONS = [
+    ("code_clarity", 0.20),
+    ("business_rule_extractability", 0.25),
+    ("test_coverage_confidence", 0.20),
+    ("dependency_isolation", 0.15),
+    ("migration_complexity", 0.20),
+]
+
+
+def _validate_and_recompute_confidence(metrics: dict) -> tuple:
+    """Server-side validation: recompute confidence from rubric and enforce thresholds.
+
+    Returns (confidence_score, recommendation, metrics) with corrected values.
+    The rubric is the source of truth — we never trust the model's pre-computed score.
+    """
+    rubric = metrics.get("confidence_rubric", {})
+
+    # Ensure all dimensions exist with valid scores and correct weights
+    recomputed_score = 0.0
+    for dim_key, expected_weight in RUBRIC_DIMENSIONS:
+        dim = rubric.get(dim_key, {})
+        score = dim.get("score", 0.0)
+
+        # Clamp score to [0.0, 1.0]
+        if not isinstance(score, (int, float)):
+            score = 0.0
+        score = max(0.0, min(1.0, float(score)))
+
+        # Force correct weight (don't trust model weights)
+        dim["score"] = score
+        dim["weight"] = expected_weight
+        rubric[dim_key] = dim
+
+        recomputed_score += score * expected_weight
+
+    recomputed_score = round(recomputed_score, 4)
+
+    # Enforce recommendation thresholds deterministically
+    if recomputed_score >= 0.80:
+        recommendation = "Proceed"
+    elif recomputed_score >= 0.50:
+        recommendation = "Caution"
+    else:
+        recommendation = "Block"
+
+    # Write corrected values back into metrics
+    metrics["confidence_rubric"] = rubric
+    metrics["confidence_score"] = recomputed_score
+    metrics["recommendation"] = recommendation
+
+    return recomputed_score, recommendation, metrics
+
+
 def run_analysis(run_id: str, source_code: str, language: str = "COBOL") -> dict:
     """Send source code to Claude for analysis. Store results in DB. Return analysis dict."""
 
@@ -116,7 +169,7 @@ def run_analysis(run_id: str, source_code: str, language: str = "COBOL") -> dict
         client = _get_client()
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4000,
+            max_tokens=6000,
             system=ANALYSIS_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -133,8 +186,8 @@ def run_analysis(run_id: str, source_code: str, language: str = "COBOL") -> dict
     except (json.JSONDecodeError, ValueError) as e:
         return {"error": f"Failed to parse analysis response: {e}", "raw_response": raw_text}
 
-    confidence = metrics.get("confidence_score", 0.0)
-    recommendation = metrics.get("recommendation", "Caution")
+    # Server-side validation: recompute confidence from rubric, enforce thresholds
+    confidence, recommendation, metrics = _validate_and_recompute_confidence(metrics)
 
     # Store in DB
     db = get_db()
