@@ -232,48 +232,6 @@
           <div class="confidence-score" id="conf-score">—</div>
         </div>
 
-        <!-- AI Reasoning Panel — "Thought Partner" -->
-        <div class="reasoning-panel" id="reasoning-panel" style="display:none">
-          <div class="reasoning-header" onclick="toggleReasoning()">
-            <span class="reasoning-icon">◆</span>
-            <span class="reasoning-title">Migration Strategy Reasoning</span>
-            <span class="reasoning-toggle" id="reasoning-toggle">▶</span>
-          </div>
-          <div class="reasoning-body" id="reasoning-body" style="display:none">
-            <div class="reasoning-section">
-              <div class="reasoning-label">Recommended Approach</div>
-              <div class="reasoning-content" id="reasoning-approach"></div>
-            </div>
-            <div class="reasoning-section">
-              <div class="reasoning-label">Why Not Lift-and-Shift</div>
-              <div class="reasoning-content" id="reasoning-not-lift"></div>
-            </div>
-            <div class="reasoning-section">
-              <div class="reasoning-label">Key Risk to Monitor</div>
-              <div class="reasoning-content" id="reasoning-risk"></div>
-            </div>
-            <div class="reasoning-section">
-              <div class="reasoning-label">Estimated Maturity Impact</div>
-              <div class="reasoning-content" id="reasoning-maturity"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─── ARCHITECTURAL RECOMMENDATIONS ─── -->
-        <div id="arch-recs-panel" style="display:none">
-          <div class="section-label">Architectural Recommendations</div>
-          <div class="data-grid" style="grid-template-columns:1fr 1fr">
-            <div class="data-card">
-              <div class="data-card-title"><span class="dot"></span>Microservice Boundaries</div>
-              <div id="arch-boundaries"></div>
-            </div>
-            <div class="data-card">
-              <div class="data-card-title"><span class="dot"></span>Integration Modernization</div>
-              <div id="arch-integrations"></div>
-            </div>
-          </div>
-        </div>
-
         <div class="action-bar" style="gap:10px">
           <button class="btn" onclick="downloadAnalysisReport()">↓ Download Report</button>
           <button class="btn-advance" onclick="advanceZone(3)">Extract Rules →</button>

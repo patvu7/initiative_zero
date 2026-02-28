@@ -67,7 +67,8 @@ The requirements document may include a "SUPPLEMENTAL CONTEXT FROM SYSTEM ANALYS
 - Understand data sensitivity requirements and add appropriate validation
 - Address the specific untested edge cases listed (add defensive handling)
 - Implement mitigations for the listed migration risks where possible in code
-- Follow the security requirements listed"""
+- Follow the security requirements listed
+- Follow the exact processing order described in the PROCESSING ORDER section of the requirements"""
 
 GENERATION_USER_PROMPT = """Generate a complete, production-ready Python module that implements ALL of the following business requirements.
 
