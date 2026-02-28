@@ -893,18 +893,19 @@ async function runTesting() {
 /**
  * Update the drift gate UI dynamically based on test results.
  * Auto-clears the gate if all tests are Type 0/1 (no drift requiring adjudication).
- * Populates the gate description with actual drift details when adjudication is needed.
+ * Shows per-item review with side-by-side diffs when adjudication is needed.
  * @param {Array} results - Test result array from the API
  */
 function updateDriftGate(results) {
   const gate = document.getElementById('drift-gate');
   const gateHeader = gate.querySelector('.human-gate-header');
-  const gateDesc = gate.querySelector('.gate-desc');
+  const gateBody = gate.querySelector('.human-gate-body');
   const actions = document.getElementById('drift-actions');
   const dr = document.getElementById('drift-decision');
 
-  const driftResults = results.filter(r => r.drift_type >= 2);
+  const semanticResults = results.filter(r => r.drift_type === 2);
   const breakingResults = results.filter(r => r.drift_type === 3);
+  const driftResults = results.filter(r => r.drift_type >= 2);
 
   if (driftResults.length === 0) {
     // Auto-clear: no drift requiring adjudication
@@ -913,35 +914,174 @@ function updateDriftGate(results) {
     gateHeader.style.background = 'var(--green-fill)';
     gateHeader.style.borderBottomColor = 'var(--green-border)';
     gate.style.borderColor = 'var(--green)';
-    gateDesc.textContent = 'All ' + results.length + ' tests passed with Type 0 or Type 1 classification. No human adjudication required.';
+    gateBody.querySelector('.gate-desc').textContent =
+      'All ' + results.length + ' tests passed with Type 0 or Type 1 classification. No human adjudication required.';
     actions.style.display = 'none';
     document.getElementById('btn-to-prod').disabled = false;
     pipelineLog('ZONE-5', 'Quality gate auto-cleared \u2014 zero drift detected', true);
     return;
   }
 
-  // Build dynamic description from actual drift results
-  const summaryParts = [];
-  if (driftResults.length > 0) summaryParts.push(driftResults.length + ' Type 2+ semantic drift');
-  if (breakingResults.length > 0) summaryParts.push(breakingResults.length + ' Type 3 breaking');
+  // Build header summary
+  const parts = [];
+  if (semanticResults.length > 0) parts.push(semanticResults.length + ' semantic');
+  if (breakingResults.length > 0) parts.push(breakingResults.length + ' breaking');
+  gateHeader.textContent = '\u26a0 Human Gate \u2014 ' + parts.join(', ') + ' drift requires adjudication';
 
-  gateHeader.textContent = '\u26a0 Human Gate \u2014 ' + summaryParts.join(', ') + ' Requires Adjudication';
+  // Hide the default bulk actions — we'll use per-item actions
+  actions.style.display = 'none';
 
-  // Show details of the first drift result as representative example
-  const rep = driftResults[0];
-  const legacyStr = formatOutput(rep.legacy_output);
-  const modernStr = formatOutput(rep.modern_output);
-  gateDesc.innerHTML = '<strong>' + escHtml(rep.test_case) + ':</strong> Legacy output ' +
-    escHtml(legacyStr) + ' vs. Modern output ' + escHtml(modernStr) +
-    '. Classification: ' + escHtml(rep.drift_classification) + '.' +
-    (driftResults.length > 1 ? ' (' + (driftResults.length - 1) + ' more drift result' + (driftResults.length > 2 ? 's' : '') + ' below)' : '');
+  // Build review items container
+  const desc = gateBody.querySelector('.gate-desc');
+  desc.innerHTML = 'Review each flagged result below. All items must be adjudicated before deployment.';
 
-  actions.style.display = '';
+  // Create items container after desc
+  let itemsContainer = document.getElementById('drift-review-items');
+  if (!itemsContainer) {
+    itemsContainer = document.createElement('div');
+    itemsContainer.id = 'drift-review-items';
+    desc.after(itemsContainer);
+  }
+  itemsContainer.innerHTML = '';
+
+  // Track adjudication state
+  window._driftAdjState = { total: driftResults.length, done: 0 };
+
+  driftResults.forEach((r, i) => {
+    const isBreaking = r.drift_type === 3;
+    const borderColor = isBreaking ? 'var(--red)' : 'var(--amber)';
+    const chipCls = isBreaking ? 'err' : 'warn';
+    const chipLabel = isBreaking ? 'Type 3 \u00b7 Breaking' : 'Type 2 \u00b7 Semantic';
+
+    // Find the differing fields
+    const legacy = r.legacy_output || {};
+    const modern = r.modern_output || {};
+    const diffFields = [];
+    const allKeys = new Set([...Object.keys(legacy), ...Object.keys(modern)]);
+    allKeys.forEach(k => {
+      if (JSON.stringify(legacy[k]) !== JSON.stringify(modern[k])) {
+        diffFields.push({
+          key: k,
+          legacy: legacy[k] !== undefined ? String(legacy[k]) : '(absent)',
+          modern: modern[k] !== undefined ? String(modern[k]) : '(absent)'
+        });
+      }
+    });
+
+    const diffHtml = diffFields.map(d =>
+      '<div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:8px;padding:4px 0;font-family:var(--mono);font-size:10px;">' +
+        '<span style="color:var(--tx3)">' + escHtml(d.key) + '</span>' +
+        '<span style="color:var(--tx2)">Legacy: <strong>' + escHtml(d.legacy) + '</strong></span>' +
+        '<span style="color:var(--tx2)">Modern: <strong>' + escHtml(d.modern) + '</strong></span>' +
+      '</div>'
+    ).join('');
+
+    const item = document.createElement('div');
+    item.className = 'sme-review-item';
+    item.id = 'drift-item-' + i;
+    item.style.borderColor = borderColor;
+    item.innerHTML =
+      '<div class="sme-review-item-header">' +
+        '<span class="sme-review-item-id">' + escHtml(r.test_case) + '</span>' +
+        '<span class="status-chip ' + chipCls + '">' + chipLabel + '</span>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--tx3);margin-bottom:8px">' +
+        escHtml(r.drift_classification) +
+      '</div>' +
+      '<div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:10px">' +
+        diffHtml +
+      '</div>' +
+      (r.source === 'ai_generated'
+        ? '<div style="font-size:9px;color:var(--tx4);margin-bottom:8px;font-family:var(--mono)">Source: AI-generated test (expected output is a prediction, not ground truth)</div>'
+        : '<div style="font-size:9px;color:var(--tx4);margin-bottom:8px;font-family:var(--mono)">Source: Legacy execution trace (ground truth)</div>'
+      ) +
+      '<div class="sme-review-item-actions" id="drift-actions-' + i + '">' +
+        '<button class="btn green" onclick="adjudicateItem(' + i + ',\'' + (r.test_id || '') + '\',\'accept\')">Accept Modern Behavior</button>' +
+        '<button class="btn amber" onclick="adjudicateItem(' + i + ',\'' + (r.test_id || '') + '\',\'preserve\')">Preserve Legacy</button>' +
+        '<button class="btn red" onclick="adjudicateItem(' + i + ',\'' + (r.test_id || '') + '\',\'escalate\')">Escalate</button>' +
+      '</div>' +
+      '<div class="sme-review-item-status" id="drift-status-' + i + '"></div>';
+
+    itemsContainer.appendChild(item);
+  });
+}
+
+/**
+ * Adjudicate a single drift item by index. Called from per-item buttons
+ * in the drift gate review UI.
+ * @param {number} index - Item index in the drift results list
+ * @param {string} testId - Test result ID for API call
+ * @param {string} action - "accept", "preserve", or "escalate"
+ */
+async function adjudicateItem(index, testId, action) {
+  const ts = new Date().toISOString().split('.')[0] + 'Z';
+  const item = document.getElementById('drift-item-' + index);
+  const actions = document.getElementById('drift-actions-' + index);
+  const status = document.getElementById('drift-status-' + index);
+
+  const decisionLabel = action === 'accept' ? 'ACCEPT_VARIANCE'
+    : action === 'preserve' ? 'PRESERVE_LEGACY' : 'ESCALATE';
+
+  const rationaleMap = {
+    accept: 'Modern behavior accepted \u2014 standard rounding is correct',
+    preserve: 'Legacy behavior preserved for backward compatibility',
+    escalate: 'Escalated to compliance for review'
+  };
+
+  actions.style.display = 'none';
+
+  try {
+    await api('/api/testing/' + state.runId + '/adjudicate', 'POST', {
+      operator: OPERATOR.name,
+      decision: decisionLabel,
+      test_id: testId,
+      rationale: rationaleMap[action]
+    });
+  } catch (e) {
+    toast('Adjudication error: ' + e.message);
+  }
+
+  item.classList.add('reviewed');
+
+  if (action === 'accept') {
+    status.textContent = '\u2713 ' + decisionLabel + ' \u2014 ' + OPERATOR.name + ' \u00b7 ' + ts;
+    status.style.color = 'var(--green)';
+    item.style.borderColor = 'var(--green)';
+    item.style.background = 'var(--green-fill)';
+  } else if (action === 'preserve') {
+    status.textContent = '\u26a0 ' + decisionLabel + ' \u2014 ' + OPERATOR.name + ' \u00b7 ' + ts;
+    status.style.color = 'var(--amber)';
+  } else {
+    status.textContent = '\u2197 ESCALATED \u2014 ' + OPERATOR.name + ' \u00b7 ' + ts;
+    status.style.color = 'var(--red)';
+  }
+
+  humanDecisionCount++;
+  document.getElementById('rb-decisions').textContent = humanDecisionCount;
+  pipelineLog('ZONE-5', 'Drift adjudicated: ' + decisionLabel + ' for item ' + index + ' by ' + OPERATOR.name, true);
+
+  window._driftAdjState.done++;
+  if (window._driftAdjState.done >= window._driftAdjState.total) {
+    document.getElementById('btn-to-prod').disabled = false;
+    toast('All drift adjudicated \u2014 ready for deployment');
+    pipelineLog('ZONE-5', 'All drift items adjudicated \u2014 quality gate cleared', true);
+
+    // Show summary decision record
+    const dr = document.getElementById('drift-decision');
+    dr.className = 'decision-record accepted show';
+    dr.innerHTML = '<div class="dr-header">\u2713 DRIFT ADJUDICATION COMPLETE</div>' +
+      '<div class="dr-body">' + window._driftAdjState.total + ' item(s) reviewed and adjudicated.</div>' +
+      '<div class="dr-ts">' + OPERATOR.name + ' (' + OPERATOR.role + ') \u00b7 ' + ts + '</div>';
+  } else {
+    const remaining = window._driftAdjState.total - window._driftAdjState.done;
+    toast(remaining + ' item(s) remaining');
+  }
 }
 
 /**
  * Adjudicate Type 2+ drift: accept the variance, preserve the legacy behavior,
  * or escalate to compliance. Records decision in the audit trail.
+ * Kept as fallback if updateDriftGate isn't called.
  * @param {string} action - "accept", "preserve", or "escalate"
  */
 async function adjudicate(action) {
