@@ -52,6 +52,13 @@ This is the entry point that the testing harness will call.
 - Convert all Decimal results to string in the return dict
 - On any error, return {"error": "description", "error_code": <int>} — never raise
 
+INPUT VALIDATION — REQUIRED vs OPTIONAL FIELDS:
+Only validate fields as REQUIRED if they directly affect the business outcome (status, action, payout, trade_amount).
+- REQUIRED fields (error if missing): financial amounts, rates, thresholds, percentages — i.e. fields used in calculations or decision logic
+- OPTIONAL fields (use sensible defaults if missing, NEVER error): identifiers like account_id, claim_id, batch_id, provider_id, symbol, asset_class, and any field used only for audit trails or logging
+- For optional identifier fields, default to empty string or "N/A" — do NOT reject the input
+- The rule is simple: if removing a field would NOT change the business decision or calculated amounts, it is optional
+
 OUTPUT FORMAT CONTRACT:
 The process() method must return a dict with these exact keys and value types:
 - For claims/approval systems:
@@ -89,7 +96,7 @@ IMPLEMENTATION CHECKLIST:
 4. All financial values must use Decimal (import from decimal module)
 5. All thresholds must be class constants
 6. Error handling must return dicts with "error" key, never raise exceptions
-7. Include input validation for missing/empty required fields
+7. Include input validation for missing/empty BUSINESS-CRITICAL fields only (amounts, rates, thresholds used in calculations). Do NOT reject inputs for missing identifier/audit fields (account_id, claim_id, batch_id, provider_id, symbol, etc.) — default those to empty string or "N/A"
 8. If "SUPPLEMENTAL CONTEXT" is present, address each listed testing gap defensively
 9. Return values must use the EXACT key names from the OUTPUT FORMAT CONTRACT (e.g. "payout" not "amount", "trade_amount" not "trade_value")
 10. Boolean fields (tlh_flag, wash_sale_flag) must be Python bool True/False, never strings "true"/"false"
