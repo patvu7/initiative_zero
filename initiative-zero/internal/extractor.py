@@ -76,7 +76,11 @@ FUNCTIONAL REQUIREMENTS
 DATA CONSTRAINTS
 - All field types and their valid ranges
 - Currency precision requirements (decimal places, rounding mode)
-- Required vs optional fields
+- Required vs optional fields — IMPORTANT: only classify a field as REQUIRED if the
+  legacy code explicitly validates it (e.g., rejects input when blank) AND it affects
+  the business outcome. Fields used only for audit trails, logging, or identification
+  (like account_id, batch_id, claim_id, symbol) should be marked OPTIONAL with sensible
+  defaults. Do NOT classify identifier/audit fields as required.
 - String format constraints (e.g., policy number format)
 
 PROCESSING ORDER
