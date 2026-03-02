@@ -267,6 +267,35 @@ def generate_test_cases(run_id: str) -> list:
     return stored
 
 
+# Input field aliases — legacy traces use abbreviated field names (e.g. current_alloc)
+# matching COBOL variable conventions, but generated code works from the requirements
+# document which uses full descriptive names (e.g. current_allocation).
+# Map known abbreviations to their full forms so both naming conventions work.
+INPUT_KEY_ALIASES = {
+    "current_alloc": "current_allocation",
+    "target_alloc": "target_allocation",
+    "unrealized_gl": "unrealized_gain_loss",
+}
+
+
+def _normalize_input_keys(test_input: dict) -> dict:
+    """Expand abbreviated input field names to include their full-form aliases.
+
+    Legacy execution traces use abbreviated field names matching COBOL variable
+    conventions. Generated code may expect the full descriptive names from the
+    requirements document. This adds the full-form alias alongside the original
+    key so the input works regardless of which naming convention the generated
+    code uses.
+    """
+    expanded = dict(test_input)
+    for short_name, full_name in INPUT_KEY_ALIASES.items():
+        if short_name in expanded and full_name not in expanded:
+            expanded[full_name] = expanded[short_name]
+        elif full_name in expanded and short_name not in expanded:
+            expanded[short_name] = expanded[full_name]
+    return expanded
+
+
 def _inject_informational_defaults(test_input: dict) -> dict:
     """Supply sensible defaults for informational/audit fields that don't affect business logic.
 
@@ -296,6 +325,7 @@ def build_test_harness(code: str, test_input: dict) -> str:
     Uses base64-encoded JSON for safe input transfer (avoids string escaping issues).
     """
     import base64
+    test_input = _normalize_input_keys(test_input)
     test_input = _inject_informational_defaults(test_input)
     encoded_input = base64.b64encode(json.dumps(test_input).encode()).decode()
 
