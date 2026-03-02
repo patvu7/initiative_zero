@@ -1,6 +1,8 @@
 # Initiative Zero — Application Package
 
 **Applicant:** Patrick Vu
+**Salary Preferance:** $130k - $160k
+**Years of meaningful experience:** 2
 
 ---
 
