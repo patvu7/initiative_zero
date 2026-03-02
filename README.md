@@ -6,9 +6,11 @@
 
 ## 1. Demo Video
 
-[Watch the demo (2–3 min)](https://www.loom.com/share/bd4c86dfc40743378c4db1eccc4d357f)
+[Demo](https://www.loom.com/share/bd4c86dfc40743378c4db1eccc4d357f)
 
 The walkthrough runs the prototype through all six zones using `portfolio_rebalance.cbl`: legacy inspection, AI analysis, business rule extraction, SME sign-off, firewall crossing, code generation, drift classification, and coexistence deployment.
+
+Prototype: https://initiative-zero.replit.app/
 
 ---
 
